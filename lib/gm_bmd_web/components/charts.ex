@@ -52,14 +52,14 @@ defmodule GmBmdWeb.Charts do
           Enum.map_reduce(Daily.chart_positive(), axis_y, fn seg, y ->
             value = Map.fetch!(k, seg.key)
             height = value * pos_scale
-            {%{x: x, y: y - height, w: bar, h: height, colour: seg.colour, label: seg.label, value: value}, y - height}
+            {%{x: x, y: y - height, w: bar, h: height, colour: seg.colour, label: seg.label, value: value, day: row.day}, y - height}
           end)
 
         {neg_rects, _} =
           Enum.map_reduce(Daily.chart_negative(), axis_y, fn seg, y ->
             value = Map.fetch!(k, seg.key)
             height = value * neg_scale
-            {%{x: x, y: y, w: bar, h: height, colour: seg.colour, label: seg.label, value: value}, y + height}
+            {%{x: x, y: y, w: bar, h: height, colour: seg.colour, label: seg.label, value: value, day: row.day}, y + height}
           end)
 
         %{
@@ -80,34 +80,34 @@ defmodule GmBmdWeb.Charts do
     <div>
       <svg viewBox={"0 0 #{@w} #{@h + 18}"} class="mt-2 w-full" role="img" aria-label="Daily transaction movement">
         <line x1={@pad} y1={@axis_y} x2={@w - @pad} y2={@axis_y} class="stroke-base-300" stroke-width="1" />
-        <g :for={bar <- @bars} opacity={if bar.past, do: "1", else: "0.35"}>
+        <g :for={db <- @bars} opacity={if db.past, do: "1", else: "0.35"}>
           <rect
-            :if={bar.today}
-            x={bar.x - 2}
+            :if={db.today}
+            x={db.x - 2}
             y="0"
-            width={bar.bar_w + 4}
+            width={db.bar_w + 4}
             height={@h}
             class="fill-steel-soft"
           />
           <rect
-            :for={r <- bar.rects}
+            :for={r <- db.rects}
             x={r.x}
             y={r.y}
             width={r.w}
             height={max(r.h, 0)}
             fill={r.colour}
           >
-            <title>{"Day #{bar.day} · #{r.label}: #{GmBmd.Format.num(r.value)}"}</title>
+            <title>{"Day #{r.day} · #{r.label}: #{GmBmd.Format.num(r.value)}"}</title>
           </rect>
           <text
-            :if={rem(bar.day, 2) == 1}
-            x={bar.x + bar.bar_w / 2}
+            :if={rem(db.day, 2) == 1}
+            x={db.x + db.bar_w / 2}
             y={@h + 14}
             text-anchor="middle"
             class="fill-muted"
             font-size="9"
           >
-            {bar.day}
+            {db.day}
           </text>
         </g>
       </svg>
