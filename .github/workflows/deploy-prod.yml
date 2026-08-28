@@ -5,6 +5,9 @@ name: deploy-prod
 on:
   push:
     branches: [prod]
+  # Manual redeploys from the GitHub UI (Actions → deploy-prod → Run workflow):
+  # deploys the selected ref without needing a push to the prod branch.
+  workflow_dispatch:
 
 concurrency:
   group: deploy-prod
