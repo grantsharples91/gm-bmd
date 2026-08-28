@@ -1,0 +1,24 @@
+# The entire local loop for gm-bmd: `docker compose up -d postgres`, then
+# `mix phx.server`. Nothing else runs on your machine — the sandbox cluster,
+# PgBouncer and the registry all live in Allfather's own dev environment.
+#
+# In every deployed environment the database arrives as DATABASE_URL (pointing
+# at PgBouncer); this file is dev-only.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

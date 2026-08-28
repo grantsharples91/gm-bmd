@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html
+  lang={assigns[:identity] && @identity.locale || "en"}
+  dir={(assigns[:identity] && @identity.locale) == "ar" && "rtl" || "ltr"}
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <meta
+      name="thor-shell-origins"
+      content={Application.get_env(:gm_bmd, :shell_origins, []) |> Enum.join(" ")}
+    />
+    <.live_title default="GM Business Management Dashboard">
+      {assigns[:page_title]}
+    </.live_title>
+    <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+    <script>
+      // THEME BOOT — must run before first paint (no flash of the wrong theme).
+      // Priority: shell URL fragment > shell snapshot cache > localStorage > system.
+      (() => {
+        const html = document.documentElement;
+        const framed = window.self !== window.top;
+        if (framed) html.setAttribute("data-t3-framed", "");
+
+        let theme = null, lang = null;
+        try {
+          const frag = new URLSearchParams((location.hash || "").replace(/^#/, ""));
+          theme = frag.get("thor.theme");
+          lang = frag.get("thor.lang");
+        } catch (_e) {}
+        if (!theme) { try { theme = localStorage.getItem("gmbmd:resolvedTheme"); } catch (_e) {} }
+        if (theme === "dark" || theme === "light") html.setAttribute("data-theme", theme);
+        else if (window.matchMedia("(prefers-color-scheme: dark)").matches) html.setAttribute("data-theme", "dark");
+        else html.setAttribute("data-theme", "light");
+        if (lang) {
+          html.setAttribute("lang", lang);
+          html.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+        }
+
+        // Register the shell listener at first script execution — the settings
+        // snapshot is sent on frame load, and a late listener misses it.
+        const meta = document.querySelector('meta[name="thor-shell-origins"]');
+        const origins = (meta && meta.content ? meta.content.split(" ") : []).filter(Boolean);
+        window.__thorShellOrigins = origins;
+        window.addEventListener("message", (e) => {
+          if (!origins.includes(e.origin) || !e.data || typeof e.data.type !== "string") return;
+          // Snapshot arrives under `settings`, deltas under `changes` — two keys.
+          const apply = (s) => {
+            if (!s) return;
+            const resolved = s.resolvedTheme;
+            if (resolved === "dark" || resolved === "light") {
+              html.setAttribute("data-theme", resolved);
+              try { localStorage.setItem("gmbmd:resolvedTheme", resolved); } catch (_err) {}
+            }
+            if (s.language) {
+              html.setAttribute("lang", s.language);
+              html.setAttribute("dir", s.language === "ar" ? "rtl" : "ltr");
+            }
+          };
+          if (e.data.type === "thor.settings") apply(e.data.settings);
+          if (e.data.type === "thor.settings.changed") apply(e.data.changes);
+        });
+      })();
+    </script>
+  </head>
+  <body class="bg-base-100 text-base-content antialiased">
+    {@inner_content}
+  </body>
+</html>

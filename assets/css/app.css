@@ -1,0 +1,156 @@
+@import "tailwindcss" source(none);
+
+@source "../js";
+@source "../../lib/gm_bmd_web";
+
+/* ------------------------------------------------------------------------
+   GymNation / THOR3 design tokens (verbatim from the shared design system).
+   Semantic custom properties switch with [data-theme]; Tailwind reads them
+   through @theme inline so bg-base-100 / text-primary etc. all theme-follow.
+   ------------------------------------------------------------------------ */
+
+:root {
+  --t-base-100: oklch(98% 0 0);
+  --t-base-200: oklch(96% 0.001 286.375);
+  --t-base-300: oklch(92% 0.004 286.32);
+  --t-base-content: oklch(21% 0.006 285.885);
+  --t-muted: oklch(44% 0.017 285.786);
+  --t-primary: oklch(86% 0.19 90);
+  --t-primary-content: oklch(26% 0.05 230);
+  --t-navy: #022a3a;
+  --t-navy-content: oklch(98% 0 0);
+  --t-navy-soft: color-mix(in oklab, #022a3a 12%, transparent);
+  --t-steel: #2f6e86;
+  --t-steel-soft: color-mix(in oklab, #2f6e86 14%, transparent);
+  --t-positive: oklch(52% 0.12 182.503);
+  --t-positive-soft: color-mix(in oklab, oklch(70% 0.14 182.503) 18%, transparent);
+  --t-negative: oklch(58% 0.253 17.585);
+  --t-negative-soft: color-mix(in oklab, oklch(58% 0.253 17.585) 12%, transparent);
+  --t-warning: oklch(66% 0.179 58.318);
+  --t-info: oklch(62% 0.214 259.815);
+}
+
+[data-theme="dark"] {
+  --t-base-100: oklch(30.33% 0.016 252.42);
+  --t-base-200: oklch(25.26% 0.014 253.1);
+  --t-base-300: oklch(20.15% 0.012 254.09);
+  --t-base-content: oklch(97.807% 0.029 256.847);
+  --t-muted: oklch(75% 0.02 256);
+  --t-navy: oklch(88% 0.03 240);
+  --t-navy-content: #022a3a;
+  --t-navy-soft: color-mix(in oklab, oklch(88% 0.03 240) 16%, transparent);
+  --t-steel: oklch(72% 0.07 230);
+  --t-steel-soft: color-mix(in oklab, oklch(72% 0.07 230) 18%, transparent);
+  --t-positive: oklch(72% 0.118 184.704);
+  --t-positive-soft: color-mix(in oklab, oklch(60% 0.118 184.704) 24%, transparent);
+  --t-negative: oklch(68% 0.21 17.585);
+  --t-negative-soft: color-mix(in oklab, oklch(58% 0.253 17.585) 22%, transparent);
+}
+
+@theme inline {
+  --font-sans: "Montserrat", "Noto Kufi Arabic", ui-sans-serif, system-ui, sans-serif;
+
+  --color-base-100: var(--t-base-100);
+  --color-base-200: var(--t-base-200);
+  --color-base-300: var(--t-base-300);
+  --color-base-content: var(--t-base-content);
+  --color-muted: var(--t-muted);
+  --color-primary: var(--t-primary);
+  --color-primary-content: var(--t-primary-content);
+  --color-navy: var(--t-navy);
+  --color-navy-content: var(--t-navy-content);
+  --color-navy-soft: var(--t-navy-soft);
+  --color-steel: var(--t-steel);
+  --color-steel-soft: var(--t-steel-soft);
+  --color-positive: var(--t-positive);
+  --color-positive-soft: var(--t-positive-soft);
+  --color-negative: var(--t-negative);
+  --color-negative-soft: var(--t-negative-soft);
+  --color-warning: var(--t-warning);
+  --color-info: var(--t-info);
+
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+}
+
+html {
+  font-family: var(--font-sans);
+  background: var(--t-base-100);
+}
+
+body {
+  background: var(--t-base-100);
+  color: var(--t-base-content);
+}
+
+/* Framed by the shell: it already draws logo/theme/identity chrome. */
+[data-t3-framed] [data-t3-chrome] .t3-hide-framed {
+  display: none;
+}
+
+/* ----------------------------------------------------------- components */
+
+.display-title {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.panel {
+  border-radius: var(--radius-box);
+  background: var(--t-base-100);
+  box-shadow: 0 0 0 1px var(--t-base-300);
+}
+
+.select-field {
+  border-radius: var(--radius-field);
+  border: 1.5px solid var(--t-base-300);
+  background: var(--t-base-100);
+  color: var(--t-base-content);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0.35rem 0.5rem;
+}
+
+.num-field {
+  border-radius: var(--radius-field);
+  border: 1.5px solid var(--t-base-300);
+  background: var(--t-base-100);
+  color: var(--t-base-content);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  width: 100%;
+}
+
+.num-field:focus-visible,
+.select-field:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--t-primary);
+  outline-offset: 1px;
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--t-primary);
+}
+
+details.pop > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.pop > summary {
+  list-style: none;
+}
+
+/* URLs / code stay LTR inside RTL copy. */
+[dir="rtl"] .pin-ltr {
+  direction: ltr;
+}

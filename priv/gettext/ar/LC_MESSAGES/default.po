@@ -1,0 +1,128 @@
+## Arabic translations for gm-bmd.
+msgid ""
+msgstr ""
+"Language: ar\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+
+msgid "Dashboard"
+msgstr "لوحة التحكم"
+
+msgid "Daily"
+msgstr "يومي"
+
+msgid "Outturn"
+msgstr "التوقع الشهري"
+
+msgid "Revenue"
+msgstr "الإيرادات"
+
+msgid "Targets"
+msgstr "الأهداف"
+
+msgid "Month"
+msgstr "الشهر"
+
+msgid "Club"
+msgstr "النادي"
+
+msgid "All clubs"
+msgstr "كل الأندية"
+
+msgid "GM Membership Analysis"
+msgstr "تحليل العضويات — مدير النادي"
+
+msgid "Daily transactions"
+msgstr "المعاملات اليومية"
+
+msgid "Month-end position calculator"
+msgstr "حاسبة مركز نهاية الشهر"
+
+msgid "Revenue & Yield"
+msgstr "الإيرادات والعائد"
+
+msgid "Monthly targets · T2"
+msgstr "الأهداف الشهرية · T2"
+
+msgid "Needs attention"
+msgstr "يتطلب الانتباه"
+
+msgid "vs target"
+msgstr "مقابل الهدف"
+
+msgid "vs last month"
+msgstr "مقابل الشهر الماضي"
+
+msgid "Copy table"
+msgstr "نسخ الجدول"
+
+msgid "MTD transactions"
+msgstr "معاملات الشهر حتى اليوم"
+
+msgid "MTD new sales"
+msgstr "مبيعات جديدة حتى اليوم"
+
+msgid "MTD outstanding defaults"
+msgstr "المتعثرات القائمة حتى اليوم"
+
+msgid "MTD prior recoveries"
+msgstr "تحصيلات الشهور السابقة"
+
+msgid "MTD upfronts"
+msgstr "الدفعات المقدمة حتى اليوم"
+
+msgid "Membership bridge"
+msgstr "جسر العضويات"
+
+msgid "By club"
+msgstr "حسب النادي"
+
+msgid "MTD position by club"
+msgstr "المركز حسب النادي"
+
+msgid "Revenue & yield"
+msgstr "الإيرادات والعائد"
+
+msgid "Today's activity"
+msgstr "نشاط اليوم"
+
+msgid "New sales"
+msgstr "مبيعات جديدة"
+
+msgid "Upfronts"
+msgstr "دفعات مقدمة"
+
+msgid "Prior-month recoveries"
+msgstr "تحصيلات الشهر السابق"
+
+msgid "Refunds"
+msgstr "المبالغ المستردة"
+
+msgid "Cancellations within month"
+msgstr "الإلغاءات خلال الشهر"
+
+msgid "Outstanding defaults forecast at month end"
+msgstr "توقع المتعثرات القائمة نهاية الشهر"
+
+msgid "Month-end position"
+msgstr "مركز نهاية الشهر"
+
+msgid "How this is calculated"
+msgstr "كيف يُحسب هذا"
+
+msgid "How this is forecast"
+msgstr "كيف يُتوقع هذا"
+
+msgid "How to read this screen"
+msgstr "كيف تقرأ هذه الشاشة"
+
+msgid "Definitions"
+msgstr "التعريفات"
+
+msgid "MTD revenue collected"
+msgstr "الإيرادات المحصلة حتى اليوم"
+
+msgid "MTD yield"
+msgstr "العائد حتى اليوم"
+
+msgid "Revenue mix"
+msgstr "مزيج الإيرادات"
