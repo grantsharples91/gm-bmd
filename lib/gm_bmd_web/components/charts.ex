@@ -26,7 +26,7 @@ defmodule GmBmdWeb.Charts do
       model.rows
       |> Enum.map(fn r ->
         k = r.actual || r.forecast
-        k.new_sales + k.prior_recoveries + k.upfront
+        Daily.chart_positive() |> Enum.map(&Map.fetch!(k, &1.key)) |> Enum.sum() |> max(k.net)
       end)
       |> Enum.max(fn -> 1 end)
       |> max(1)
@@ -167,9 +167,10 @@ defmodule GmBmdWeb.Charts do
         class="pointer-events-none absolute z-20 w-64 rounded-lg border border-base-300 bg-base-100 p-3 text-[11px] shadow-lg"
       >
       </div>
-      <template :for={db <- @bars} data-tip-for={db.day}>
+      <%!-- hidden divs, not <template>: LiveView's DOM patch does not descend into template content --%>
+      <div :for={db <- @bars} data-tip-for={db.day} hidden>
         <.day_callout row={db.row} kpis={db.kpis} />
-      </template>
+      </div>
     </div>
     """
   end
