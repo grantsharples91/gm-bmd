@@ -86,6 +86,57 @@ const Hooks = {
       this.el.addEventListener("click", () => window.print());
     },
   },
+  // Hover callout for the daily chart: each day has a transparent hit area
+  // ([data-day]) and a pre-rendered <template data-tip-for>; the hook copies
+  // the template into one floating box and follows the cursor. Tap toggles
+  // on touch. No server round-trip.
+  ChartTooltip: {
+    mounted() {
+      this.current = null;
+      this.bind();
+    },
+    updated() {
+      this.current = null;
+      this.bind();
+    },
+    bind() {
+      const el = this.el;
+      const box = el.querySelector("[data-tip-box]");
+      if (!box) return;
+      const hide = () => {
+        box.hidden = true;
+        this.current = null;
+      };
+      const show = (day, evt) => {
+        const src = el.querySelector(`[data-tip-for="${day}"]`);
+        if (!src) return;
+        if (this.current !== day) {
+          box.innerHTML = src.innerHTML;
+          this.current = day;
+        }
+        box.hidden = false;
+        const r = el.getBoundingClientRect();
+        let x = evt.clientX - r.left + 14;
+        let y = evt.clientY - r.top + 14;
+        const bw = box.offsetWidth;
+        const bh = box.offsetHeight;
+        if (x + bw > r.width - 4) x = evt.clientX - r.left - bw - 14;
+        if (x < 4) x = 4;
+        if (y + bh > r.height - 4) y = Math.max(4, evt.clientY - r.top - bh - 14);
+        box.style.left = `${x}px`;
+        box.style.top = `${y}px`;
+      };
+      el.querySelectorAll("[data-day]").forEach((hit) => {
+        hit.onmousemove = (e) => show(hit.dataset.day, e);
+        hit.onmouseleave = hide;
+        hit.onclick = (e) => {
+          if (this.current === hit.dataset.day && !box.hidden) hide();
+          else show(hit.dataset.day, e);
+        };
+      });
+      el.onmouseleave = hide;
+    },
+  },
   // Standalone theme control (hidden when framed — the shell owns theme there).
   ThemeToggle: {
     mounted() {

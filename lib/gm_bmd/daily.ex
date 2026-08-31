@@ -40,7 +40,7 @@ defmodule GmBmd.Daily do
   def chart_negative, do: @chart_negative
 
   defp zero_kpis do
-    @kpi_keys |> Map.new(&{&1, 0}) |> Map.merge(%{defaults_outstanding: 0, net: 0})
+    @kpi_keys |> Map.new(&{&1, 0}) |> Map.merge(%{defaults_outstanding: 0, net: 0, transactions: 0})
   end
 
   @doc "Net movement for a day: positives − outstanding defaults − cancellations − refunds."
@@ -109,7 +109,8 @@ defmodule GmBmd.Daily do
               defaults_collected: k.defaults_collected + row.defaults_recovered,
               defaults_outstanding: k.defaults_outstanding + row.flows.defaults,
               cancel_within: k.cancel_within + row.flows.cancel_within,
-              refunds: k.refunds + row.flows.refunds
+              refunds: k.refunds + row.flows.refunds,
+              transactions: k.transactions + (Map.get(row, :transactions) || 0)
           }
         end)
       end)

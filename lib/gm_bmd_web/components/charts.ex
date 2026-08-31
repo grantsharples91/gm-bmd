@@ -6,7 +6,9 @@ defmodule GmBmdWeb.Charts do
 
   @doc """
   Daily transaction movement: actual days stacked by KPI (positives above the
-  axis, negatives below), forecast days rendered at 35% opacity.
+  axis, negatives below), forecast days rendered at 35% opacity, a net-movement
+  marker per day, gridlines with values, and a hover callout per day showing
+  the full make-up of the bar (`ChartTooltip` hook — no server round-trip).
   """
   attr :model, :map, required: true
 
@@ -14,9 +16,10 @@ defmodule GmBmdWeb.Charts do
     model = assigns.model
     w = 1000
     h = 240
-    pad = 6
+    pad_l = 34
+    pad_r = 6
     n = length(model.rows)
-    slot = (w - pad * 2) / max(n, 1)
+    slot = (w - pad_l - pad_r) / max(n, 1)
     bar = slot * 0.72
 
     pos_max =
@@ -46,7 +49,8 @@ defmodule GmBmdWeb.Charts do
       |> Enum.with_index()
       |> Enum.map(fn {row, i} ->
         k = row.actual || row.forecast
-        x = pad + i * slot + (slot - bar) / 2
+        x0 = pad_l + i * slot
+        x = x0 + (slot - bar) / 2
 
         {pos_rects, _} =
           Enum.map_reduce(Daily.chart_positive(), axis_y, fn seg, y ->
@@ -62,53 +66,83 @@ defmodule GmBmdWeb.Charts do
             {%{x: x, y: y, w: bar, h: height, colour: seg.colour, label: seg.label, value: value, day: row.day}, y + height}
           end)
 
+        net_y = if k.net >= 0, do: axis_y - k.net * pos_scale, else: axis_y + -k.net * neg_scale
+
         %{
           day: row.day,
+          row: row,
+          kpis: k,
           today: row.today,
           past: row.past,
+          weekend: row.weekend,
           net: k.net,
+          net_y: net_y,
           rects: pos_rects ++ neg_rects,
           x: x,
+          x0: x0,
           bar_w: bar
         }
       end)
 
+    pos_ticks = nice_ticks(pos_max, 3)
+    neg_ticks = nice_ticks(neg_max, 2)
+
     assigns =
-      assign(assigns, w: w, h: h, axis_y: axis_y, bars: bars, pad: pad, slot: slot)
+      assign(assigns,
+        w: w,
+        h: h,
+        axis_y: axis_y,
+        bars: bars,
+        pad_l: pad_l,
+        pad_r: pad_r,
+        slot: slot,
+        pos_ticks: Enum.map(pos_ticks, &{&1, axis_y - &1 * pos_scale}),
+        neg_ticks: Enum.map(neg_ticks, &{&1, axis_y + &1 * neg_scale})
+      )
 
     ~H"""
-    <div>
+    <div id="daily-chart" phx-hook="ChartTooltip" class="relative">
       <svg viewBox={"0 0 #{@w} #{@h + 18}"} class="mt-2 w-full" role="img" aria-label="Daily transaction movement">
-        <line x1={@pad} y1={@axis_y} x2={@w - @pad} y2={@axis_y} class="stroke-base-300" stroke-width="1" />
-        <g :for={db <- @bars} opacity={if db.past, do: "1", else: "0.35"}>
-          <rect
-            :if={db.today}
-            x={db.x - 2}
-            y="0"
-            width={db.bar_w + 4}
-            height={@h}
-            class="fill-steel-soft"
-          />
-          <rect
-            :for={r <- db.rects}
-            x={r.x}
-            y={r.y}
-            width={r.w}
-            height={max(r.h, 0)}
-            fill={r.colour}
-          >
-            <title>{"Day #{r.day} · #{r.label}: #{GmBmd.Format.num(r.value)}"}</title>
-          </rect>
+        <g :for={{v, y} <- @pos_ticks ++ @neg_ticks}>
+          <line x1={@pad_l} y1={y} x2={@w - @pad_r} y2={y} class="stroke-base-300" stroke-width="0.5" stroke-dasharray="2 3" />
+          <text x={@pad_l - 4} y={y + 3} text-anchor="end" class="fill-muted" font-size="8">
+            {GmBmd.Format.num(v)}
+          </text>
+        </g>
+        <line x1={@pad_l} y1={@axis_y} x2={@w - @pad_r} y2={@axis_y} class="stroke-base-content" stroke-width="1" opacity="0.5" />
+        <text x={@pad_l - 4} y={@axis_y + 3} text-anchor="end" class="fill-muted" font-size="8">0</text>
+        <g :for={db <- @bars}>
+          <rect :if={db.weekend} x={db.x0} y="0" width={@slot} height={@h} class="fill-base-content" opacity="0.03" />
+          <rect :if={db.today} x={db.x - 2} y="0" width={db.bar_w + 4} height={@h} class="fill-steel-soft" />
+          <g opacity={if db.past, do: "1", else: "0.35"}>
+            <rect :for={r <- db.rects} x={r.x} y={r.y} width={r.w} height={max(r.h, 0)} fill={r.colour} />
+            <line
+              x1={db.x - 1}
+              y1={db.net_y}
+              x2={db.x + db.bar_w + 1}
+              y2={db.net_y}
+              class="stroke-base-content"
+              stroke-width="1.5"
+            />
+          </g>
           <text
-            :if={rem(db.day, 2) == 1}
             x={db.x + db.bar_w / 2}
             y={@h + 14}
             text-anchor="middle"
-            class="fill-muted"
+            class={[if(db.today, do: "fill-base-content font-bold", else: "fill-muted")]}
             font-size="9"
           >
             {db.day}
           </text>
+          <rect
+            x={db.x0}
+            y="0"
+            width={@slot}
+            height={@h + 18}
+            fill="transparent"
+            class="cursor-crosshair hover:fill-base-content/5"
+            data-day={db.day}
+          />
         </g>
       </svg>
       <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted">
@@ -117,11 +151,100 @@ defmodule GmBmdWeb.Charts do
           {seg.label}
         </span>
         <span class="inline-flex items-center gap-1.5">
+          <span class="inline-block h-[2px] w-3 bg-base-content"></span> Net movement
+        </span>
+        <span class="inline-flex items-center gap-1.5">
           <span class="size-2 rounded-sm bg-base-300 opacity-50"></span> Forecast (faded)
         </span>
+        <span class="ms-auto">Hover a day for its make-up</span>
+      </div>
+
+      <div
+        data-tip-box
+        hidden
+        phx-update="ignore"
+        id="daily-chart-tip"
+        class="pointer-events-none absolute z-20 w-64 rounded-lg border border-base-300 bg-base-100 p-3 text-[11px] shadow-lg"
+      >
+      </div>
+      <template :for={db <- @bars} data-tip-for={db.day}>
+        <.day_callout row={db.row} kpis={db.kpis} />
+      </template>
+    </div>
+    """
+  end
+
+  attr :row, :map, required: true
+  attr :kpis, :map, required: true
+
+  defp day_callout(assigns) do
+    ~H"""
+    <div class="mb-2 flex items-baseline justify-between gap-2 border-b border-base-300 pb-1.5">
+      <span class="font-extrabold">
+        {@row.dow} {Calendar.strftime(@row.date, "%-d %b")}
+      </span>
+      <span class={["text-[10px] font-bold uppercase tracking-wide", @row.past && "text-positive", !@row.past && "text-muted"]}>
+        {cond do
+          @row.today -> "Today · actual"
+          @row.past -> "Actual"
+          true -> "Forecast"
+        end}
+      </span>
+    </div>
+    <div class="space-y-0.5">
+      <.callout_line :for={seg <- Daily.chart_positive()} label={seg.label} colour={seg.colour} value={Map.fetch!(@kpis, seg.key)} sign="+" />
+      <.callout_line label="Defaults raised" colour="#B91C1C" value={@kpis.defaults_raised} sign="" muted />
+      <.callout_line label="Defaults collected" colour="#059669" value={@kpis.defaults_collected} sign="" muted />
+      <.callout_line label="Defaults outstanding" colour="#B91C1C" value={@kpis.defaults_outstanding} sign="−" />
+      <.callout_line label="Cancellations in month" colour="#E06666" value={@kpis.cancel_within} sign="−" />
+      <.callout_line label="Refunds" colour="#F3A6A6" value={@kpis.refunds} sign="−" />
+    </div>
+    <div class="mt-2 space-y-0.5 border-t border-base-300 pt-1.5">
+      <div class="flex justify-between font-bold">
+        <span>Net movement</span>
+        <span class={["tabular-nums", @kpis.net < 0 && "text-negative"]}>{GmBmd.Format.signed(@kpis.net)}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-muted">Position after this day</span>
+        <span class="tabular-nums">{GmBmd.Format.num(@row.closing_position)}</span>
+      </div>
+      <div :if={@row.past and Map.get(@kpis, :transactions, 0) > 0} class="flex justify-between">
+        <span class="text-muted">Transactions that day (THOR)</span>
+        <span class="tabular-nums">{GmBmd.Format.num(@kpis.transactions)}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-muted">Billing due</span>
+        <span class="tabular-nums">{GmBmd.Format.num(@row.billing_due)}</span>
       </div>
     </div>
     """
+  end
+
+  attr :label, :string, required: true
+  attr :colour, :string, required: true
+  attr :value, :integer, required: true
+  attr :sign, :string, required: true
+  attr :muted, :boolean, default: false
+
+  defp callout_line(assigns) do
+    ~H"""
+    <div class={["flex items-center justify-between gap-2", @muted && "text-muted"]}>
+      <span class="inline-flex items-center gap-1.5">
+        <span class="size-2 shrink-0 rounded-sm" style={"background:#{@colour}"}></span>
+        {@label}
+      </span>
+      <span class="tabular-nums">{@sign}{GmBmd.Format.num(@value)}</span>
+    </div>
+    """
+  end
+
+  # 1–`count` evenly spaced "nice" tick values up to `max`.
+  defp nice_ticks(top, count) do
+    raw = top / count
+    mag = :math.pow(10, :math.floor(:math.log10(max(raw, 1))))
+    step = Enum.find([1, 2, 2.5, 5, 10], 10, fn m -> m * mag >= raw end) * mag
+    step = if step < 1, do: 1, else: round(step)
+    Stream.iterate(step, &(&1 + step)) |> Enum.take_while(&(&1 <= top)) |> Enum.take(count + 1)
   end
 
   @doc "Cumulative line chart: target (yellow), forecast (dashed grey), actual (navy)."

@@ -64,6 +64,17 @@ defmodule GmBmdWeb.ThorFeedTest do
     assert ot.base == Enum.reduce(ot.rows, ot.mtd_total, fn r, acc -> acc + r.sign * r.remaining end)
   end
 
+  test "daily chart carries a hover callout per day with the bar's make-up", %{conn: conn} do
+    {:ok, _view, html} = live(conn, ~p"/daily")
+    assert html =~ ~s(id="daily-chart")
+    assert html =~ ~s(phx-hook="ChartTooltip")
+    assert html =~ ~s(data-tip-for="1")
+    assert html =~ ~s(data-tip-for="31")
+    assert html =~ "Position after this day"
+    assert html =~ "Transactions that day (THOR)"
+    assert html =~ "Net movement"
+  end
+
   test "dashboard narrows to a club that only exists in the feed", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
     club = Enum.find(Bridge.clubs(), &(&1.name == "Al Faisaliyyah Ladies"))
