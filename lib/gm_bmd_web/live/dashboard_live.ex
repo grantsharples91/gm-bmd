@@ -760,6 +760,11 @@ defmodule GmBmdWeb.DashboardLive do
   attr :full, :map, required: true
   attr :totals, :map, required: true
   attr :full_totals, :map, required: true
+  attr :closing, :map, required: true
+  attr :prev_closing, :map, required: true
+  attr :club_id, :string, required: true
+  attr :month_label, :string, required: true
+  attr :prev_month_label, :string, required: true
 
   defp bridge_tab(assigns) do
     assigns =
