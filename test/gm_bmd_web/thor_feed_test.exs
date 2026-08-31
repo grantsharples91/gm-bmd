@@ -110,7 +110,7 @@ defmodule GmBmdWeb.ThorFeedTest do
       "month_bridges" => [
         %{
           "club_id" => "club-al-ain",
-          "month" => "2026-08",
+          "month" => "2026-03",
           "opening" => 5000,
           "flows" => %{"new_sales" => 100},
           "total" => 5100,
@@ -129,6 +129,8 @@ defmodule GmBmdWeb.ThorFeedTest do
     assert body["ok"] == true
     assert body["counts"]["month_bridges"] == 1
     assert Bridge.as_of() == ~D[2026-08-31]
-    assert Bridge.bridge_for("club-al-ain", "2026-08").opening == 5000
+    # the first month keeps the opening the feed sent; the next opens on its closing
+    assert Bridge.bridge_for("club-al-ain", "2026-03").opening == 5000
+    assert Bridge.bridge_for("club-al-ain", "2026-04").opening == 5100
   end
 end

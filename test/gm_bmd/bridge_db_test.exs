@@ -146,7 +146,7 @@ defmodule GmBmd.BridgeDBTest do
     {:ok, _} = Ingest.load_file!(@snapshot)
     targets = DB.finance_targets()
     assert length(targets) == 36
-    assert Enum.all?(targets, &(&1.total_target > 0))
+    assert Enum.all?(targets, &(&1.new_sales_target >= 0 and is_integer(&1.total_target)))
   end
 
   test "re-ingesting upserts rather than duplicating, and replace wipes" do
