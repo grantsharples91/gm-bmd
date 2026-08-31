@@ -36,14 +36,26 @@ defmodule GmBmd.Gm do
     acc =
       Enum.reduce(
         rows,
-        %{flows: zero, defaults_raised: 0, defaults_recovered: 0, recurring_collected: 0, revenue: 0},
+        %{
+          flows: zero,
+          defaults_raised: 0,
+          defaults_recovered: 0,
+          recurring_collected: 0,
+          revenue: 0,
+          transactions: 0,
+          transactions_known: false
+        },
         fn row, acc ->
+          txn = Map.get(row, :transactions)
+
           %{
             flows: Map.new(acc.flows, fn {k, v} -> {k, v + Map.fetch!(row.flows, k)} end),
             defaults_raised: acc.defaults_raised + row.defaults_raised,
             defaults_recovered: acc.defaults_recovered + row.defaults_recovered,
             recurring_collected: acc.recurring_collected + row.recurring_collected,
-            revenue: acc.revenue + row.revenue_aed
+            revenue: acc.revenue + row.revenue_aed,
+            transactions: acc.transactions + (txn || 0),
+            transactions_known: acc.transactions_known or txn != nil
           }
         end
       )
@@ -110,17 +122,50 @@ defmodule GmBmd.Gm do
     end
   end
 
-  @doc "The bridge for a selection. `through_day` gives the MTD bridge; nil = full month."
+  @reconcile_row %{
+    key: :reconcile,
+    label: "Still to run / unreconciled",
+    short: "Still to run",
+    sign: 1
+  }
+
+  def reconcile_row, do: @reconcile_row
+
+  @doc """
+  The bridge for a selection. `through_day` gives the MTD bridge; nil = full
+  month. When the feed carries the actual transaction count, the total IS
+  that count and a reconciling line closes the gap between the count and
+  what the nine rows explain — mid-month that is mostly members whose
+  billing day has not come yet; at month end it is movement the rows do not
+  capture.
+  """
   def bridge_snapshot(month, club_id, through_day \\ nil) do
     opening = opening_for(month, club_id)
     totals = aggregate(rows_for(month, club_id, through_day))
 
-    {lines, total} =
+    {lines, projected} =
       Enum.map_reduce(Bridge.bridge_rows(), opening, fn row, running ->
         value = Map.fetch!(totals.flows, row.key)
         running = running + row.sign * value
         {Map.merge(row, %{value: value, fixed: Bridge.fixed_row?(row.key), running: running}), running}
       end)
+
+    {lines, total} =
+      if totals.transactions_known do
+        actual = totals.transactions
+
+        line =
+          Map.merge(@reconcile_row, %{
+            value: actual - projected,
+            fixed: false,
+            running: actual,
+            reconcile: true
+          })
+
+        {lines ++ [line], actual}
+      else
+        {lines, projected}
+      end
 
     %{
       month: month,
@@ -128,6 +173,8 @@ defmodule GmBmd.Gm do
       opening: opening,
       lines: lines,
       flows: totals.flows,
+      projected: projected,
+      reconcile: total - projected,
       total: total,
       net_growth: total - opening
     }
@@ -281,7 +328,9 @@ defmodule GmBmd.Gm do
         end
       end)
 
-    base = Enum.reduce(rows, mtd.opening, fn r, acc -> acc + r.sign * r.forecast end)
+    # Outturn = where we are (the MTD total) plus what is still to come. Equal
+    # to opening + signed forecasts when the rows explain the count fully.
+    base = Enum.reduce(rows, mtd.total, fn r, acc -> acc + r.sign * r.remaining end)
     remaining_gross = rows |> Enum.map(& &1.remaining) |> Enum.sum()
 
     legacy = finance_targets_for(club_id)

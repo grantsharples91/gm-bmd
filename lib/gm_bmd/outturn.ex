@@ -154,7 +154,7 @@ defmodule GmBmd.Outturn do
         end
       end)
 
-    base = Enum.reduce(rows, raw.opening, fn r, acc -> acc + r.sign * r.forecast end)
+    base = Enum.reduce(rows, raw.mtd_total, fn r, acc -> acc + r.sign * r.remaining end)
 
     sales_remaining =
       rows |> Enum.filter(&(&1.driver == :sales)) |> Enum.map(& &1.remaining) |> Enum.sum()

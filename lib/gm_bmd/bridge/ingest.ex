@@ -13,9 +13,11 @@ defmodule GmBmd.Bridge.Ingest do
         "clubs": [{"id": "club-al-ain", "name": "Al Ain", "city": ""}],
         "month_bridges": [{"club_id", "month": "YYYY-MM", "opening", "flows": {…9 keys…},
                            "defaults_raised", "defaults_recovered", "total", "net_growth",
-                           "revenue_aed", "recurring_collected"}],
+                           "revenue_aed", "recurring_collected",
+                           "transactions"}],            // THOR Transaction_Count = closing total
         "day_rows":      [{"club_id", "date": "YYYY-MM-DD", "flows": {…}, "defaults_raised",
-                           "defaults_recovered", "recurring_collected", "revenue_aed"}],
+                           "defaults_recovered", "recurring_collected", "revenue_aed",
+                           "transactions"}],            // movement in the count that day
         "billing_runs":  [{"club_id", "date", "members_due", "last_collected_pct"}]
       }
 
@@ -133,7 +135,8 @@ defmodule GmBmd.Bridge.Ingest do
       total: int(m["total"]),
       net_growth: int(m["net_growth"]),
       revenue_aed: (m["revenue_aed"] || 0) * 1.0,
-      recurring_collected: int(m["recurring_collected"])
+      recurring_collected: int(m["recurring_collected"]),
+      transactions: opt_int(m["transactions"])
     }
   end
 
@@ -145,7 +148,8 @@ defmodule GmBmd.Bridge.Ingest do
       defaults_raised: int(d["defaults_raised"]),
       defaults_recovered: int(d["defaults_recovered"]),
       recurring_collected: int(d["recurring_collected"]),
-      revenue_aed: int(d["revenue_aed"])
+      revenue_aed: int(d["revenue_aed"]),
+      transactions: opt_int(d["transactions"])
     }
   end
 
@@ -162,6 +166,9 @@ defmodule GmBmd.Bridge.Ingest do
     map = map || %{}
     Map.new(Bridge.bridge_row_keys(), fn key -> {to_string(key), int(map[to_string(key)])} end)
   end
+
+  defp opt_int(nil), do: nil
+  defp opt_int(v), do: int(v)
 
   defp int(nil), do: 0
   defp int(v) when is_integer(v), do: v

@@ -144,13 +144,18 @@ defmodule GmBmd.Bridge.DB do
             |> Enum.sort_by(& &1.month)
             |> Enum.map_reduce(nil, fn m, carried ->
               opening = carried || m.opening
-              total = flow_total(opening, m.flows)
+              projected = flow_total(opening, m.flows)
+              # The closing total is THOR's transaction count when the feed
+              # carries it; the bridge rows explain what they can and the
+              # rest is the reconciling line.
+              total = m.transactions || projected
               override = Map.get(overrides, {club_id, m.month})
 
               row =
                 Map.merge(m, %{
                   opening: opening,
                   total: total,
+                  reconcile: total - projected,
                   net_growth: total - opening,
                   closing: (override && override.value) || total,
                   closing_override: override
@@ -185,6 +190,8 @@ defmodule GmBmd.Bridge.DB do
                   net_growth: total - opening,
                   revenue_aed: template.revenue_aed,
                   recurring_collected: template.recurring_collected,
+                  transactions: nil,
+                  reconcile: 0,
                   closing: total,
                   closing_override: nil
                 }
@@ -337,7 +344,8 @@ defmodule GmBmd.Bridge.DB do
         total: m.total,
         net_growth: m.net_growth,
         revenue_aed: m.revenue_aed,
-        recurring_collected: m.recurring_collected
+        recurring_collected: m.recurring_collected,
+        transactions: m.transactions
       }
     )
     |> Repo.all()
@@ -355,7 +363,8 @@ defmodule GmBmd.Bridge.DB do
         defaults_raised: d.defaults_raised,
         defaults_recovered: d.defaults_recovered,
         recurring_collected: d.recurring_collected,
-        revenue_aed: d.revenue_aed
+        revenue_aed: d.revenue_aed,
+        transactions: d.transactions
       }
     )
     |> Repo.all()

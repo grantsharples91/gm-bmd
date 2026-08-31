@@ -49,6 +49,12 @@ defmodule GmBmd.Bridge.Synth do
         weights(:defaults_recovered, year, month, dim, seed)
       )
 
+    transactions =
+      case Map.get(bridge, :transactions) do
+        nil -> nil
+        count -> Shape.distribute(count, weights(:recurring, year, month, dim, seed))
+      end
+
     unit = Bridge.unit_aed()
 
     for day <- 1..dim do
@@ -72,7 +78,8 @@ defmodule GmBmd.Bridge.Synth do
         defaults_raised: Enum.at(raised, i),
         defaults_recovered: day_recovered,
         recurring_collected: recurring_collected,
-        revenue_aed: revenue
+        revenue_aed: revenue,
+        transactions: transactions && Enum.at(transactions, i)
       }
     end
   end

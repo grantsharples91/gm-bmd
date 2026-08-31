@@ -410,7 +410,7 @@ defmodule GmBmdWeb.DashboardLive do
             label={gettext("MTD transactions")}
             value={num(@mtd_bridge.total)}
             navigate={~p"/outturn"}
-            hint="Every membership paying this month: opening base, plus new sales, upfronts and recoveries, minus cancellations, defaults and refunds."
+            hint="Successful transactions so far this month — THOR's transaction count. The bridge explains the movement from last month's closing: new sales, upfronts and recoveries in; cancellations, defaults and refunds out."
             delta={mtd_delta(@compare, @mtd_bridge, @prev_bridge, @full_bridge)}
           >
             opening {num(@mtd_bridge.opening)} ·
@@ -768,7 +768,7 @@ defmodule GmBmdWeb.DashboardLive do
 
   defp bridge_tab(assigns) do
     assigns =
-      assign(assigns, :scale, assigns.full.lines |> Enum.map(& &1.value) |> Enum.max(fn -> 1 end) |> max(1))
+      assign(assigns, :scale, assigns.full.lines |> Enum.map(&abs(&1.value)) |> Enum.max(fn -> 1 end) |> max(1))
 
     ~H"""
     <div class="min-w-0">
@@ -794,6 +794,8 @@ defmodule GmBmdWeb.DashboardLive do
           bar_pct={line.value / @scale}
           zero_dash={line.key == :agency_collections}
           fixed={line.fixed}
+          signed_value={line.key == :reconcile}
+          bold={line.key == :reconcile}
         />
         <.bridge_row label="= Total transactions" mtd={@mtd.total} full={@full.total} bold />
         <.bridge_row
@@ -900,12 +902,18 @@ defmodule GmBmdWeb.DashboardLive do
   defp bridge_label(%{key: :defaults} = line, full_totals),
     do: "− #{line.label} (total defaulted #{Format.num(full_totals.defaults_raised)})"
 
+  defp bridge_label(%{key: :reconcile} = line, _), do: "± #{line.label}"
+
   defp bridge_label(line, _),
     do: "#{if line.sign == -1, do: "−", else: "+"} #{line.label}"
 
   defp bridge_note(%{key: :defaults}, totals),
     do:
       "collected #{Format.num(totals.defaults_recovered)} · outstanding #{Format.num(totals.outstanding)} MTD — the deduction is the outstanding balance"
+
+  defp bridge_note(%{key: :reconcile}, _totals),
+    do:
+      "the gap between THOR's transaction count and what the rows above explain — mid-month, members whose billing day has not come; at month end, movement the rows miss"
 
   defp bridge_note(_line, _totals), do: nil
 

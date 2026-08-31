@@ -41,6 +41,29 @@ defmodule GmBmdWeb.ThorFeedTest do
     end
   end
 
+  test "MTD transactions is THOR's count and the bridge reconciles to it", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    html =
+      view
+      |> element("form[phx-change=filter]")
+      |> render_change(%{"month" => "2026-08", "club_id" => "club-motor-city"})
+
+    assert html =~ "7,365"
+    assert html =~ "Still to run / unreconciled"
+
+    snap = GmBmd.Gm.bridge_snapshot("2026-08", "club-motor-city", 30)
+    assert snap.total == 7365
+    assert snap.opening == Bridge.bridge_for("club-motor-city", "2026-07").closing
+    assert List.last(snap.lines).key == :reconcile
+    assert snap.projected + snap.reconcile == snap.total
+
+    # outturn starts from the count and adds what is still to come
+    ot = GmBmd.Outturn.build("club-motor-city", "2026-08", %{total_target: 7500, new_sales_target: 500})
+    assert ot.mtd_total == 7365
+    assert ot.base == Enum.reduce(ot.rows, ot.mtd_total, fn r, acc -> acc + r.sign * r.remaining end)
+  end
+
   test "dashboard narrows to a club that only exists in the feed", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
     club = Enum.find(Bridge.clubs(), &(&1.name == "Al Faisaliyyah Ladies"))

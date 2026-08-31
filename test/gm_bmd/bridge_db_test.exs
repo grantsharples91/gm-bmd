@@ -47,9 +47,17 @@ defmodule GmBmd.BridgeDBTest do
           acc + row.sign * Map.fetch!(b.flows, row.key)
         end)
 
-      assert b.total == expected
+      # the rows explain what they can; the reconciling line closes to THOR's count
+      assert b.total == expected + b.reconcile
       assert b.net_growth == b.total - b.opening
+      if b.kind == :forecast, do: assert(b.reconcile == 0)
     end
+
+    # the closing total is THOR's transaction count
+    mc_aug = Enum.find(DB.month_bridges(), &(&1.club_id == "club-motor-city" and &1.month == "2026-08"))
+    assert mc_aug.total == 7365
+    assert mc_aug.transactions == 7365
+    assert DB.day_rows("2026-08") |> Enum.filter(&(&1.club_id == "club-motor-city")) |> Enum.map(& &1.transactions) |> Enum.sum() == 7365
 
     # every opening is the prior month's closing — actual and forecast alike
     for club <- DB.clubs() do
@@ -78,7 +86,9 @@ defmodule GmBmd.BridgeDBTest do
     assert jul.total == aug_before.opening
     assert jul.closing_override.set_by == "grant"
     assert aug.opening == 6000
-    assert aug.total == aug_before.total - aug_before.opening + 6000
+    # the count does not move — the reconciling line absorbs the new opening
+    assert aug.total == aug_before.total
+    assert aug.reconcile == aug_before.reconcile - (6000 - aug_before.opening)
     assert sep.opening == aug.closing
 
     # other clubs untouched
