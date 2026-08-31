@@ -31,7 +31,17 @@
           theme = frag.get("thor.theme");
           lang = frag.get("thor.lang");
         } catch (_e) {}
-        if (!theme) { try { theme = localStorage.getItem("gmbmd:resolvedTheme"); } catch (_e) {} }
+        // Standalone: the user's own choice (gmbmd:theme) wins; "auto" follows
+        // the OS; no choice at all defaults to LIGHT — a finance screen should
+        // not go dark just because the laptop did. Framed: the shell decides.
+        let choice = null;
+        try { choice = localStorage.getItem("gmbmd:theme"); } catch (_e) {}
+        if (!theme && framed) { try { theme = localStorage.getItem("gmbmd:resolvedTheme"); } catch (_e) {} }
+        if (!theme && !framed) {
+          if (choice === "dark" || choice === "light") theme = choice;
+          else if (choice === "auto") theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          else theme = "light";
+        }
         if (theme === "dark" || theme === "light") html.setAttribute("data-theme", theme);
         else if (window.matchMedia("(prefers-color-scheme: dark)").matches) html.setAttribute("data-theme", "dark");
         else html.setAttribute("data-theme", "light");

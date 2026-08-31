@@ -25,8 +25,28 @@ defmodule GmBmdWeb.Layouts do
           <.nav_link navigate={~p"/revenue"} label={gettext("Revenue")} />
           <.nav_link navigate={~p"/targets"} label={gettext("Targets")} />
         </nav>
-        <span :if={@identity && @identity.email != ""} class="ml-auto text-[11px] text-muted">
-          {@identity.email}
+        <span class="ms-auto flex items-center gap-3">
+          <span
+            id="theme-toggle"
+            phx-hook="ThemeToggle"
+            phx-update="ignore"
+            class="t3-hide-framed flex h-7 items-stretch overflow-hidden rounded-md border border-base-300 bg-base-100 text-[10px] font-bold uppercase tracking-wide"
+            role="group"
+            aria-label={gettext("Theme")}
+          >
+            <button type="button" data-theme-choice="light" class="px-2 text-muted hover:bg-base-200">
+              {gettext("Light")}
+            </button>
+            <button type="button" data-theme-choice="dark" class="px-2 text-muted hover:bg-base-200">
+              {gettext("Dark")}
+            </button>
+            <button type="button" data-theme-choice="auto" class="px-2 text-muted hover:bg-base-200">
+              {gettext("Auto")}
+            </button>
+          </span>
+          <span :if={@identity && @identity.email != ""} class="text-[11px] text-muted">
+            {@identity.email}
+          </span>
         </span>
       </header>
       <main class="mx-auto max-w-[1400px] px-4 py-4">

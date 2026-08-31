@@ -86,6 +86,39 @@ const Hooks = {
       this.el.addEventListener("click", () => window.print());
     },
   },
+  // Standalone theme control (hidden when framed — the shell owns theme there).
+  ThemeToggle: {
+    mounted() {
+      if (framed) return; // the shell owns theme when framed; the control is hidden anyway
+      const html = document.documentElement;
+      const apply = (choice) => {
+        const resolved =
+          choice === "auto"
+            ? window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+            : choice;
+        html.setAttribute("data-theme", resolved);
+        try { localStorage.setItem("gmbmd:theme", choice); } catch (_e) {}
+        this.el.querySelectorAll("[data-theme-choice]").forEach((b) => {
+          const on = b.dataset.themeChoice === choice;
+          b.classList.toggle("bg-navy", on);
+          b.classList.toggle("text-navy-content", on);
+          b.classList.toggle("text-muted", !on);
+          b.setAttribute("aria-pressed", String(on));
+        });
+      };
+      let current = "light";
+      try { current = localStorage.getItem("gmbmd:theme") || "light"; } catch (_e) {}
+      apply(current);
+      this.el.querySelectorAll("[data-theme-choice]").forEach((b) =>
+        b.addEventListener("click", () => apply(b.dataset.themeChoice))
+      );
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        let c = "light";
+        try { c = localStorage.getItem("gmbmd:theme") || "light"; } catch (_e) {}
+        if (c === "auto") apply("auto");
+      });
+    },
+  },
 };
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
