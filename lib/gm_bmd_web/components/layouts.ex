@@ -58,9 +58,6 @@ defmodule GmBmdWeb.Layouts do
     """
   end
 
-  attr :navigate, :string, required: true
-  attr :label, :string, required: true
-
   # Where the numbers come from: the THOR feed's as-of date, or the seeded
   # placeholder set when no feed has been loaded yet.
   defp feed_badge(assigns) do
@@ -91,6 +88,9 @@ defmodule GmBmdWeb.Layouts do
         %{live?: false, label: "Placeholder data", title: "Seeded placeholder figures — no feed loaded."}
     end
   end
+
+  attr :navigate, :string, required: true
+  attr :label, :string, required: true
 
   defp nav_link(assigns) do
     ~H"""
