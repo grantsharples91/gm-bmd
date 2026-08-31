@@ -215,6 +215,7 @@ defmodule GmBmdWeb.DashboardLive do
       attention: attention,
       yesterday: yesterday,
       next_run: next_run,
+      runs: Gm.runs_for(month, club_id),
       verdict: verdict,
       sales_pace: sales_pace,
       gm_forecast: gm_forecast,
@@ -481,7 +482,7 @@ defmodule GmBmdWeb.DashboardLive do
 
         <.attention_panel attention={@attention} club_id={@club_id} />
 
-        <div :if={@yesterday || @next_run} class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div :if={@yesterday || @next_run || @runs} class="grid grid-cols-1 gap-3 lg:grid-cols-2">
           <div :if={@yesterday} class="panel p-3">
             <div class="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
               <.icon name="history" class="size-3.5" /> Yesterday ({@yesterday.label})
@@ -505,11 +506,39 @@ defmodule GmBmdWeb.DashboardLive do
               </div>
             </div>
           </div>
-          <div :if={@next_run} class="panel p-3">
-            <div class="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
-              <.icon name="calendar" class="size-3.5" /> Daily billing runs
+          <div :if={@runs || @next_run} class="panel p-3">
+            <div class="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+              <.icon name="calendar" class="size-3.5" /> Billing run forecast
+              <span :if={@runs} class="normal-case tracking-normal font-semibold">· month to date</span>
+              <span
+                :if={@runs && abs(@runs.variance_thor_pct) >= 0.02}
+                class="ms-auto rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] normal-case tracking-normal font-bold"
+                title="THOR's own 'Forecast' figure does not tie to its success + default outcomes. Attempts (success + defaults) is used as the run count; this is THOR's forecast against it."
+              >
+                THOR forecast {num(@runs.forecast_thor)} · {signed(@runs.variance_thor)} vs attempts
+              </span>
             </div>
-            <div class="grid grid-cols-2 gap-x-4">
+            <div :if={@runs} class="grid grid-cols-2 gap-x-4 lg:grid-cols-4">
+              <div
+                :for={
+                  {label, value, tone} <- [
+                    {"Runs attempted", num(@runs.attempts), nil},
+                    {"First-time success", pct(@runs.success_pct), tone_for(@runs.success_pct, 0.65, 0.55)},
+                    {"Defaults recovered in month", pct(@runs.wmr_pct), tone_for(@runs.wmr_pct, 0.75, 0.6)},
+                    {"Still outstanding", num(@runs.outstanding), nil}
+                  ]
+                }
+                class="border-b border-base-300/60 py-1.5"
+              >
+                <p class="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</p>
+                <p class={["text-base font-extrabold tabular-nums", tone]}>{value}</p>
+              </div>
+            </div>
+            <p :if={@runs} class="mt-1.5 text-[11px] text-muted">
+              {num(@runs.success)} succeeded first time · {num(@runs.defaults)} defaulted · {num(@runs.wmr)} recovered within the month
+              · {num(@runs.pmr)} prior-month recoveries · {num(@runs.mccm)} via MCCM
+            </p>
+            <div :if={@next_run} class="mt-2 grid grid-cols-2 gap-x-4 border-t border-base-300/60 pt-1">
               <div
                 :for={
                   {label, value} <- [
@@ -519,10 +548,10 @@ defmodule GmBmdWeb.DashboardLive do
                     {"Last run collected", pct(@next_run.last_collected_pct)}
                   ]
                 }
-                class="flex items-baseline justify-between gap-2 border-b border-base-300/60 py-1.5"
+                class="flex items-baseline justify-between gap-2 py-1"
               >
                 <span class="text-[11px] text-muted">{label}</span>
-                <span class="text-sm font-bold">{value}</span>
+                <span class="text-xs font-bold">{value}</span>
               </div>
             </div>
           </div>
@@ -635,6 +664,14 @@ defmodule GmBmdWeb.DashboardLive do
   defp need_net_per_day(actual, target, month) do
     rr = Rules.run_rate(actual, target, month)
     if rr.days_left > 0, do: (target - actual) / rr.days_left, else: 0.0
+  end
+
+  defp tone_for(value, good, bad) do
+    cond do
+      value >= good -> "text-positive"
+      value < bad -> "text-negative"
+      true -> nil
+    end
   end
 
   defp outstanding_tone(totals) do
@@ -1439,8 +1476,8 @@ defmodule GmBmdWeb.DashboardLive do
        "Total = opening − duplicates + new sales + prior collections + upfront + agency − cancellations − defaults − refunds. Net growth = total − opening."},
       {"Month-end outturn",
        "The same bridge projected to month end: run-driven rows are transactions still to run × an observed rate; sales rows run-rate; fixed rows taken as-is."},
-      {"Daily billing runs",
-       "Recurring billing runs EVERY calendar day — heavier at month start, Fri quiet, Sat busy. Transactions ran = the daily runs to date."},
+      {"Billing run forecast",
+       "Recurring billing attempts month to date, from THOR's Collections feed: attempts = first-time successes + first-time defaults, so the two always add up. THOR's own 'Forecast' figure is shown beside it only when it disagrees — it does not tie to the outcomes. Recovered in month = defaults collected on retry (WMR)."},
       {"Yield", "Revenue collected ÷ collecting transactions (AED per transaction) — the one metric that leads with money."}
     ]
   end

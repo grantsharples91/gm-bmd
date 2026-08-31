@@ -14,7 +14,9 @@ defmodule GmBmd.Bridge.Ingest do
         "month_bridges": [{"club_id", "month": "YYYY-MM", "opening", "flows": {…9 keys…},
                            "defaults_raised", "defaults_recovered", "total", "net_growth",
                            "revenue_aed", "recurring_collected",
-                           "transactions"}],            // THOR Transaction_Count = closing total
+                           "transactions",              // THOR Transaction_Count = closing total
+                           "runs": {"forecast_thor", "success", "defaults", "wmr", "pmr", "mccm"}}],
+                                                        // billing runs MTD (THOR Collections section)
         "day_rows":      [{"club_id", "date": "YYYY-MM-DD", "flows": {…}, "defaults_raised",
                            "defaults_recovered", "recurring_collected", "revenue_aed",
                            "transactions"}],            // movement in the count that day
@@ -141,7 +143,13 @@ defmodule GmBmd.Bridge.Ingest do
       net_growth: int(m["net_growth"]),
       revenue_aed: (m["revenue_aed"] || 0) * 1.0,
       recurring_collected: int(m["recurring_collected"]),
-      transactions: opt_int(m["transactions"])
+      transactions: opt_int(m["transactions"]),
+      runs_forecast_thor: opt_int(get_in(m, ["runs", "forecast_thor"])),
+      runs_success: opt_int(get_in(m, ["runs", "success"])),
+      runs_defaults: opt_int(get_in(m, ["runs", "defaults"])),
+      runs_wmr: opt_int(get_in(m, ["runs", "wmr"])),
+      runs_pmr: opt_int(get_in(m, ["runs", "pmr"])),
+      runs_mccm: opt_int(get_in(m, ["runs", "mccm"]))
     }
   end
 

@@ -102,6 +102,50 @@ defmodule GmBmd.Gm do
     }
   end
 
+  @doc """
+  Billing run forecast for a selection, month to date — the metric the GM
+  runs the month on. Attempts = first-time successes + first-time defaults,
+  so the identity always holds; THOR's own "Forecast" is carried as
+  `forecast_thor` with the variance against attempts. nil when the feed does
+  not carry the metric for any club in the selection.
+  """
+  def runs_for(month, club_id) do
+    runs =
+      club_id
+      |> club_ids()
+      |> Enum.map(&Bridge.bridge_for(&1, month))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&Map.get(&1, :runs))
+      |> Enum.reject(&is_nil/1)
+
+    if runs == [] do
+      nil
+    else
+      sum = fn key -> runs |> Enum.map(&(Map.get(&1, key) || 0)) |> Enum.sum() end
+      attempts = sum.(:attempts)
+      success = sum.(:success)
+      defaults = sum.(:defaults)
+      wmr = sum.(:wmr)
+      forecast_thor = sum.(:forecast_thor)
+
+      %{
+        clubs: length(runs),
+        attempts: attempts,
+        success: success,
+        defaults: defaults,
+        success_pct: if(attempts > 0, do: success / attempts, else: 0.0),
+        wmr: wmr,
+        wmr_pct: if(defaults > 0, do: min(wmr / defaults, 1.0), else: 0.0),
+        pmr: sum.(:pmr),
+        mccm: sum.(:mccm),
+        outstanding: max(defaults - wmr, 0),
+        forecast_thor: forecast_thor,
+        variance_thor: forecast_thor - attempts,
+        variance_thor_pct: if(attempts > 0, do: (forecast_thor - attempts) / attempts, else: 0.0)
+      }
+    end
+  end
+
   @doc "Opening transactions for a selection in a month (a stock — never pro-rated)."
   def opening_for(month, club_id) do
     club_id

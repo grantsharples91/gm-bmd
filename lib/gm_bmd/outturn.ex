@@ -28,14 +28,29 @@ defmodule GmBmd.Outturn do
   defp rate(a, b) when b > 0, do: a / b * 100
   defp rate(_a, _b), do: 0.0
 
-  @doc "Rates observed so far this month — what the assumption inputs start from."
+  @doc """
+  Rates observed so far this month — what the assumption inputs start from.
+  When the feed carries the billing-run metric, the default and in-month
+  collect rates come straight from it (defaults ÷ attempts, recovered ÷
+  defaults); otherwise from the bridge accrual.
+  """
   def observed_rates(month, club_id, days_elapsed, runs_done) do
     t = Gm.aggregate(Gm.rows_for(month, club_id, days_elapsed))
     ran = max(t.recurring_collected, 1)
+    runs = Gm.runs_for(month, club_id)
+
+    {default_rate, collect_rate} =
+      case runs do
+        %{attempts: a} = r when a > 0 ->
+          {r.defaults / a * 100, min(r.wmr_pct * 100, 100.0)}
+
+        _ ->
+          {rate(t.defaults_raised, ran), rate(t.defaults_recovered, max(t.defaults_raised, 1))}
+      end
 
     %{
-      default_rate_pct: rate(t.defaults_raised, ran),
-      collect_rate_pct: rate(t.defaults_recovered, max(t.defaults_raised, 1)),
+      default_rate_pct: default_rate,
+      collect_rate_pct: collect_rate,
       recovery_per_run:
         if(runs_done > 0, do: round(t.flows.prior_default_collections / runs_done), else: 0),
       agency_per_run:

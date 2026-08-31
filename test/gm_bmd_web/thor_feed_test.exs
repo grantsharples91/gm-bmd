@@ -65,6 +65,36 @@ defmodule GmBmdWeb.ThorFeedTest do
              Enum.reduce(ot.rows, ot.mtd_total + ot.still_to_run, fn r, acc -> acc + r.sign * r.remaining end)
   end
 
+  test "billing run forecast: attempts = success + defaults, THOR's forecast shown as variance", %{conn: conn} do
+    runs = GmBmd.Gm.runs_for("2026-08", "club-motor-city")
+    assert runs.success == 3539 and runs.defaults == 1309
+    assert runs.attempts == 4848
+    assert runs.forecast_thor == 4852
+    assert runs.variance_thor == 4
+    assert_in_delta runs.success_pct, 0.73, 0.01
+    assert runs.outstanding == 1309 - 993
+
+    all = GmBmd.Gm.runs_for("2026-08", GmBmd.Gm.all_clubs())
+    assert all.clubs == 36
+    assert all.attempts == all.success + all.defaults
+    assert all.attempts == 125_052
+
+    # the outturn's default and collect rates come from the runs metric
+    obs = GmBmd.Outturn.observed_rates("2026-08", "club-motor-city", 30, 30)
+    assert_in_delta obs.default_rate_pct, 1309 / 4848 * 100, 0.01
+    assert_in_delta obs.collect_rate_pct, 993 / 1309 * 100, 0.01
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    html = view |> element("form[phx-change=filter]") |> render_change(%{"month" => "2026-08", "club_id" => "all"})
+    assert html =~ "Billing run forecast"
+    assert html =~ "Runs attempted"
+    assert html =~ "125,052"
+    assert html =~ "THOR forecast 120,431"
+
+    # a forecast month carries no runs metric
+    assert GmBmd.Gm.runs_for("2026-10", "club-motor-city") == nil
+  end
+
   test "daily chart carries a hover callout per day with the bar's make-up", %{conn: conn} do
     {:ok, _view, html} = live(conn, ~p"/daily")
     assert html =~ ~s(id="daily-chart")

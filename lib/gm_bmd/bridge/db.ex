@@ -191,6 +191,7 @@ defmodule GmBmd.Bridge.DB do
                   revenue_aed: template.revenue_aed,
                   recurring_collected: template.recurring_collected,
                   transactions: nil,
+                  runs: nil,
                   reconcile: 0,
                   closing: total,
                   closing_override: nil
@@ -345,12 +346,22 @@ defmodule GmBmd.Bridge.DB do
         net_growth: m.net_growth,
         revenue_aed: m.revenue_aed,
         recurring_collected: m.recurring_collected,
-        transactions: m.transactions
+        transactions: m.transactions,
+        runs_forecast_thor: m.runs_forecast_thor,
+        runs_success: m.runs_success,
+        runs_defaults: m.runs_defaults,
+        runs_wmr: m.runs_wmr,
+        runs_pmr: m.runs_pmr,
+        runs_mccm: m.runs_mccm
       }
     )
     |> Repo.all()
     |> Enum.map(fn m ->
-      %{m | kind: String.to_atom(m.kind), flows: atomise_flows(m.flows)}
+      m
+      |> Map.put(:kind, String.to_atom(m.kind))
+      |> Map.put(:flows, atomise_flows(m.flows))
+      |> Map.put(:runs, runs_of(m))
+      |> Map.drop([:runs_forecast_thor, :runs_success, :runs_defaults, :runs_wmr, :runs_pmr, :runs_mccm])
     end)
   end
 
@@ -388,6 +399,23 @@ defmodule GmBmd.Bridge.DB do
   end
 
   # ----------------------------------------------------------------- helpers
+
+  # The billing-run metric. Attempts = success + defaults by construction —
+  # THOR's own "Forecast" does not tie to its outcomes, so it is carried only
+  # for the variance.
+  defp runs_of(%{runs_success: s, runs_defaults: f} = m) when is_integer(s) and is_integer(f) do
+    %{
+      forecast_thor: m.runs_forecast_thor,
+      attempts: s + f,
+      success: s,
+      defaults: f,
+      wmr: m.runs_wmr || 0,
+      pmr: m.runs_pmr || 0,
+      mccm: m.runs_mccm || 0
+    }
+  end
+
+  defp runs_of(_m), do: nil
 
   defp atomise_flows(flows) do
     Map.new(Bridge.bridge_row_keys(), fn key ->
