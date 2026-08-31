@@ -109,7 +109,7 @@ defmodule GmBmdWeb.DailyLive do
               <span class="text-muted">/ {signed(@model.mtd_forecast_total)}</span>
             </p>
             <p class="mt-0.5 text-[10px] text-muted">
-              net movement to day {@model.days_elapsed} · closing {num(@model.closing_actual)}
+              transactions to day {@model.days_elapsed} · MTD {num(@model.closing_actual)}
             </p>
           </.gm_tile>
           <.gm_tile label="Days left">
@@ -128,7 +128,7 @@ defmodule GmBmdWeb.DailyLive do
 
         <div class="rounded-lg bg-base-100 p-3 ring-1 ring-base-300">
           <p class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-            Daily transaction movement — {@model.month_label} · actual stacked by KPI, forecast faded
+            Daily transactions — {@model.month_label} · each bar is that day's successful transactions by type; failed attempts, cancellations and refunds below the axis; forecast faded
           </p>
           <Charts.daily_chart model={@model} />
         </div>
@@ -159,8 +159,8 @@ defmodule GmBmdWeb.DailyLive do
                   <th class="px-1 py-1 text-end">Actual</th>
                   <th class="px-1 py-1 text-end">Var</th>
                   <th :for={k <- Daily.daily_kpis()} class="px-1 py-1 text-end" title={k.label}>{k.short}</th>
-                  <th class="px-1 py-1 text-end">Net</th>
-                  <th class="px-1 py-1 text-end">Running total</th>
+                  <th class="px-1 py-1 text-end">Transactions</th>
+                  <th class="px-1 py-1 text-end">MTD count</th>
                 </tr>
               </thead>
               <tbody>

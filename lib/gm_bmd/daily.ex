@@ -1,18 +1,24 @@
 defmodule GmBmd.Daily do
   @moduledoc """
-  DAILY TRANSACTIONS — day-by-day view of the month.
+  DAILY TRANSACTIONS — day-by-day view of the month, on the transaction-count
+  basis: each day's bar is the successful transactions that day (THOR's
+  count when the feed carries it), stacked by what they were — recurring
+  dues, new sales, upfronts, prior recoveries, defaults collected. Failed
+  attempts, cancellations and refunds sit below the axis for context; they
+  are not transactions. The running position is the MTD count, so it ties to
+  the dashboard's MTD transactions to the unit.
 
-  Actuals come straight off the bridge accrual, so MTD column totals reconcile
-  exactly with the dashboard. Forecasts for the days still to come spread
-  (target − MTD actual) over the remaining days by day-of-week weight; the
-  run-driven KPIs take their month-end totals from `GmBmd.Outturn`, so this
-  page and the outturn always close on the same number.
+  Forecasts for the days still to come spread (target − MTD actual) over the
+  remaining days by day-of-week weight; the run-driven KPIs take their
+  month-end totals from `GmBmd.Outturn`, and recurring dues absorb the rest,
+  so this page and the outturn always close on the same number.
   """
 
   alias GmBmd.Bridge
   alias GmBmd.Gm
 
   @daily_kpis [
+    %{key: :recurring, label: "Recurring dues", short: "Recurring", sign: 1, colour: "#8DA3B8"},
     %{key: :new_sales, label: "New sales", short: "New sales", sign: 1, colour: "#022A3A"},
     %{key: :prior_recoveries, label: "Prior recoveries", short: "Prior rec.", sign: 1, colour: "#2F6E86"},
     %{key: :upfront, label: "Upfronts", short: "Upfronts", sign: 1, colour: "#F4CD00"},
@@ -25,9 +31,11 @@ defmodule GmBmd.Daily do
   @kpi_keys Enum.map(@daily_kpis, & &1.key)
 
   @chart_positive [
+    %{key: :recurring, label: "Recurring dues", colour: "#8DA3B8"},
     %{key: :new_sales, label: "New sales", colour: "#022A3A"},
     %{key: :prior_recoveries, label: "Prior recoveries", colour: "#2F6E86"},
-    %{key: :upfront, label: "Upfronts", colour: "#F4CD00"}
+    %{key: :upfront, label: "Upfronts", colour: "#F4CD00"},
+    %{key: :defaults_collected, label: "Defaults collected", colour: "#059669"}
   ]
   @chart_negative [
     %{key: :defaults_outstanding, label: "Defaults outstanding", colour: "#B91C1C"},
@@ -43,10 +51,13 @@ defmodule GmBmd.Daily do
     @kpi_keys |> Map.new(&{&1, 0}) |> Map.merge(%{defaults_outstanding: 0, net: 0, transactions: 0})
   end
 
-  @doc "Net movement for a day: positives − outstanding defaults − cancellations − refunds."
+  @doc """
+  Transactions in a day: recurring dues + new sales + upfronts + prior
+  recoveries + defaults collected. Failed attempts, cancellations and refunds
+  are not transactions and do not move the count.
+  """
   def net_of(k) do
-    k.new_sales + k.prior_recoveries + k.upfront - k.defaults_outstanding - k.cancel_within -
-      k.refunds
+    k.recurring + k.new_sales + k.prior_recoveries + k.upfront + k.defaults_collected
   end
 
   # Day-of-week + calendar weight for one KPI on one day (UAE trading pattern).
@@ -75,7 +86,7 @@ defmodule GmBmd.Daily do
 
         week * if day > dim - 3, do: 1.25, else: 1.0
 
-      k when k in [:defaults_raised, :cancel_within, :refunds] ->
+      k when k in [:recurring, :defaults_raised, :cancel_within, :refunds] ->
         run
 
       k when k in [:defaults_collected, :prior_recoveries] ->
@@ -93,14 +104,17 @@ defmodule GmBmd.Daily do
   end
 
   defp actuals_by_day(month, club_id, dim) do
-    base = Map.new(1..dim, &{&1, zero_kpis()})
+    base = Map.new(1..dim, &{&1, Map.merge(zero_kpis(), %{txn_known: false})})
 
     by_day =
       Enum.reduce(Gm.rows_for(month, club_id), base, fn row, acc ->
         Map.update!(acc, row.date.day, fn k ->
+          txn = Map.get(row, :transactions)
+
           %{
             k
-            | new_sales: k.new_sales + row.flows.new_sales,
+            | recurring: k.recurring + row.recurring_collected,
+              new_sales: k.new_sales + row.flows.new_sales,
               prior_recoveries:
                 k.prior_recoveries + row.flows.prior_default_collections +
                   row.flows.agency_collections,
@@ -110,12 +124,28 @@ defmodule GmBmd.Daily do
               defaults_outstanding: k.defaults_outstanding + row.flows.defaults,
               cancel_within: k.cancel_within + row.flows.cancel_within,
               refunds: k.refunds + row.flows.refunds,
-              transactions: k.transactions + (Map.get(row, :transactions) || 0)
+              transactions: k.transactions + (txn || 0),
+              txn_known: k.txn_known or txn != nil
           }
         end)
       end)
 
-    Map.new(by_day, fn {day, k} -> {day, %{k | net: net_of(k)}} end)
+    # When the feed carries the day's transaction count, recurring dues are
+    # the plug so the stack sums exactly to it; otherwise the count is the
+    # sum of what was collected.
+    # The count is the truth for the day's movement; on a day where the typed
+    # rows over-attribute (feed gaps), the stack can exceed the net marker.
+    Map.new(by_day, fn {day, k} ->
+      k =
+        if k.txn_known do
+          typed = k.new_sales + k.prior_recoveries + k.upfront + k.defaults_collected
+          %{k | recurring: max(k.transactions - typed, 0), net: k.transactions}
+        else
+          %{k | transactions: net_of(k), net: net_of(k)}
+        end
+
+      {day, Map.delete(k, :txn_known)}
+    end)
   end
 
   # Full-month plan for a KPI from the bridge — the comparator when no target exists.
@@ -129,6 +159,10 @@ defmodule GmBmd.Daily do
 
         b ->
           case kpi do
+            :recurring ->
+              Map.get(b, :recurring_collected) ||
+                max(round((b.opening - b.flows.duplicates) * 0.93), 0)
+
             :new_sales -> b.flows.new_sales
             :prior_recoveries -> b.flows.prior_default_collections + b.flows.agency_collections
             :upfront -> b.flows.upfront
@@ -137,18 +171,6 @@ defmodule GmBmd.Daily do
             :cancel_within -> b.flows.cancel_within
             :refunds -> b.flows.refunds
           end
-      end
-    end)
-    |> Enum.sum()
-  end
-
-  defp fixed_day1_total(month, club_id) do
-    club_id
-    |> Gm.club_ids()
-    |> Enum.map(fn id ->
-      case Bridge.bridge_for(id, month) do
-        nil -> 0
-        b -> b.flows.duplicates + b.flows.cancel_prior
       end
     end)
     |> Enum.sum()
@@ -213,6 +235,16 @@ defmodule GmBmd.Daily do
         {key, kpi_target(month, club_id, key, target_values, source, month_end)}
       end)
 
+    # Recurring dues close the month to the outturn: whatever the typed
+    # transactions do not account for.
+    targets =
+      if outturn_close != nil do
+        typed = targets.new_sales + targets.upfront + targets.prior_recoveries + targets.defaults_collected
+        %{targets | recurring: max(round(outturn_close) - typed, 0)}
+      else
+        targets
+      end
+
     mtd_of = fn key ->
       Enum.reduce(1..max(days_elapsed, 0)//1, 0, fn d, acc -> acc + Map.fetch!(actual[d], key) end)
     end
@@ -229,7 +261,9 @@ defmodule GmBmd.Daily do
         {key, GmBmd.Bridge.Shape.distribute(left, future_w)}
       end)
 
-    opening = Gm.opening_for(month, club_id) - fixed_day1_total(month, club_id)
+    # Count basis: the running position starts at zero and accrues the day's
+    # transactions; it equals the MTD transaction count on every past day.
+    opening = 0
 
     {rows, _closing} =
       Enum.map_reduce(1..dim, opening, fn day, closing ->
@@ -285,7 +319,7 @@ defmodule GmBmd.Daily do
 
             Enum.map(rows, fn row ->
               if row.day == last_future_day do
-                fc = %{row.forecast | new_sales: max(row.forecast.new_sales + residual, 0)}
+                fc = %{row.forecast | recurring: max(row.forecast.recurring + residual, 0)}
                 %{row | forecast: %{fc | net: net_of(fc)}}
               else
                 row

@@ -62,10 +62,10 @@ defmodule GmBmd.OutturnTest do
     model =
       Daily.build(month, club, %{}, :approved, Outturn.daily_month_end_totals(ot), ot.base)
 
-    snap = Gm.bridge_snapshot(month, club, Bridge.today_day())
-    # Daily opening is net of the day-1 fixed rows; closing actual must match
-    # the MTD bridge total exactly.
-    assert model.closing_actual == snap.total
+    # Count basis: the daily running position is the MTD transactions
+    # collected (on the feed that is THOR's count — see thor_feed_test).
+    agg = Gm.aggregate(Gm.rows_for(month, club, Bridge.today_day()))
+    assert model.closing_actual == agg.collected_transactions
   end
 
   test "defaults forecast reconciliation leaves position unchanged at prefill" do

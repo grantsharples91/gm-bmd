@@ -73,6 +73,15 @@ defmodule GmBmdWeb.ThorFeedTest do
     assert html =~ "Position after this day"
     assert html =~ "Transactions that day (THOR)"
     assert html =~ "Net movement"
+
+    # the daily running position IS the MTD count, and the bars sum to it
+    ot = GmBmd.Outturn.build("club-motor-city", "2026-08", %{total_target: 7500, new_sales_target: 500})
+    model = GmBmd.Daily.build("2026-08", "club-motor-city", %{}, :approved, GmBmd.Outturn.daily_month_end_totals(ot), ot.base)
+    assert model.closing_actual == 7365
+    day1 = Enum.find(model.rows, &(&1.day == 1))
+    assert day1.actual.net == 398
+    assert day1.actual.transactions == 398
+    assert model.month_forecast_close == ot.base
   end
 
   test "dashboard narrows to a club that only exists in the feed", %{conn: conn} do
