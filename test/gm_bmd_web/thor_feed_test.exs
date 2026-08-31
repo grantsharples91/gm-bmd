@@ -61,7 +61,8 @@ defmodule GmBmdWeb.ThorFeedTest do
     # outturn starts from the count and adds what is still to come
     ot = GmBmd.Outturn.build("club-motor-city", "2026-08", %{total_target: 7500, new_sales_target: 500})
     assert ot.mtd_total == 7365
-    assert ot.base == Enum.reduce(ot.rows, ot.mtd_total, fn r, acc -> acc + r.sign * r.remaining end)
+    assert ot.base ==
+             Enum.reduce(ot.rows, ot.mtd_total + ot.still_to_run, fn r, acc -> acc + r.sign * r.remaining end)
   end
 
   test "daily chart carries a hover callout per day with the bar's make-up", %{conn: conn} do

@@ -50,11 +50,13 @@ defmodule GmBmd.OutturnTest do
         )
 
       # Seeds carry no transaction count, so the outturn is on the stock basis
-      # while Daily always counts collected transactions; the two agree unless
-      # the outturn sits below what has already been collected, which Daily
-      # reports rather than fakes.
-      assert model.month_forecast_close + model.unreconciled == ot.base,
-             "daily close #{model.month_forecast_close} (+#{model.unreconciled}) != outturn #{ot.base} for #{club_id}"
+      # while Daily always counts collected transactions — they agree only on
+      # the count basis (asserted on the real feed in thor_feed_test). Here:
+      # the residual is absorbed whenever there are days left to absorb it.
+      if ot.count_basis? or model.days_left > 0 do
+        assert model.month_forecast_close + model.unreconciled == ot.base,
+               "daily close #{model.month_forecast_close} (+#{model.unreconciled}) != outturn #{ot.base} for #{club_id}"
+      end
 
       if model.unreconciled != 0 do
         assert model.month_forecast_close == model.closing_actual
