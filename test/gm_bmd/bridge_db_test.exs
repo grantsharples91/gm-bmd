@@ -159,6 +159,19 @@ defmodule GmBmd.BridgeDBTest do
     assert Enum.all?(targets, &(&1.new_sales_target >= 0 and is_integer(&1.total_target)))
   end
 
+  test "the loader fills empty tables, refreshes on a newer snapshot, and leaves a newer feed alone" do
+    assert GmBmd.Bridge.Loader.ensure_loaded() == :loaded
+    assert GmBmd.Bridge.Loader.ensure_loaded() == :present
+
+    # an older stamp in the tables → the bundled snapshot wins
+    {:ok, _} = Ingest.load!(%{"generated_at" => "2000-01-01T00:00:00Z"})
+    assert GmBmd.Bridge.Loader.ensure_loaded() == :loaded
+
+    # a newer platform sync → left alone
+    {:ok, _} = Ingest.load!(%{"generated_at" => "2999-01-01T00:00:00Z"})
+    assert GmBmd.Bridge.Loader.ensure_loaded() == :present
+  end
+
   test "re-ingesting upserts rather than duplicating, and replace wipes" do
     {:ok, _} = Ingest.load_file!(@snapshot)
     {:ok, _} = Ingest.load_file!(@snapshot)

@@ -1,9 +1,12 @@
 defmodule GmBmd.Bridge.Loader do
   @moduledoc """
-  Boot-time bootstrap: when the `bridge_*` tables are empty, load the THOR
-  snapshot shipped in `priv/bridge/thor_snapshot.json` so a fresh deploy
-  shows real club data before the platform sync has run. Never overwrites a
-  feed that is already in the database.
+  Boot-time bootstrap: load the THOR snapshot shipped in
+  `priv/bridge/thor_snapshot.json` when the `bridge_*` tables are empty, or
+  when the bundled snapshot is newer (`generated_at`) than what the tables
+  hold — so a redeploy with a fresher or richer snapshot takes effect. A
+  platform sync through `POST /api/ingest` stamps its own `generated_at`, so
+  it is never overwritten by an older bundled file. Manager closing overrides
+  live in their own table and are untouched either way.
   """
 
   require Logger
@@ -25,23 +28,41 @@ defmodule GmBmd.Bridge.Loader do
       :ok
   end
 
-  @doc "Load the snapshot if the tables are empty. Returns :loaded | :present | :missing."
+  @doc """
+  Load the snapshot if the tables are empty or the snapshot is newer.
+  Returns :loaded | :present | :missing.
+  """
   def ensure_loaded do
     path = Application.app_dir(:gm_bmd, Path.join("priv", @snapshot))
 
     cond do
-      Ingest.counts().month_bridges > 0 ->
-        DB.reload()
-        :present
-
       not File.exists?(path) ->
         Logger.warning("bridge snapshot missing at #{path}; running on seeded data")
         :missing
 
+      Ingest.counts().month_bridges == 0 ->
+        load(path, "tables empty")
+
+      snapshot_generated_at(path) > (Ingest.meta()["generated_at"] || "") ->
+        load(path, "bundled snapshot is newer than the loaded feed")
+
       true ->
-        {:ok, counts} = Ingest.load_file!(path)
-        Logger.info("bridge snapshot loaded: #{inspect(counts)}")
-        :loaded
+        DB.reload()
+        :present
+    end
+  end
+
+  defp load(path, why) do
+    {:ok, counts} = Ingest.load_file!(path)
+    Logger.info("bridge snapshot loaded (#{why}): #{inspect(counts)}")
+    :loaded
+  end
+
+  # Cheap peek at the file's generated_at without decoding 1 MB of rows.
+  defp snapshot_generated_at(path) do
+    case Regex.run(~r/"generated_at"\s*:\s*"([^"]+)"/, File.read!(path)) do
+      [_, stamp] -> stamp
+      _ -> ""
     end
   end
 end

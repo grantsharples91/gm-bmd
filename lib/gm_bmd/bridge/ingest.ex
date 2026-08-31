@@ -91,6 +91,11 @@ defmodule GmBmd.Bridge.Ingest do
 
   defp count(table), do: from(t in table) |> Repo.aggregate(:count)
 
+  @doc "The bridge_meta rows as a map (as_of, source, generated_at, ingested_at)."
+  def meta do
+    from(m in "bridge_meta", select: {m.key, m.value}) |> Repo.all() |> Map.new()
+  end
+
   defp wipe do
     for table <- ~w(bridge_clubs bridge_months bridge_days billing_runs bridge_meta) do
       Repo.delete_all(from(t in table))
