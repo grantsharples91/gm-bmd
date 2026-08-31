@@ -51,12 +51,43 @@ defmodule GmBmd.BridgeDBTest do
       assert b.net_growth == b.total - b.opening
     end
 
-    # forecast months chain from the last actual
+    # every opening is the prior month's closing — actual and forecast alike
     for club <- DB.clubs() do
-      aug = Enum.find(DB.month_bridges(), &(&1.club_id == club.id and &1.month == "2026-08"))
-      sep = Enum.find(DB.month_bridges(), &(&1.club_id == club.id and &1.month == "2026-09"))
-      assert sep.opening == aug.total
+      bridges = DB.month_bridges() |> Enum.filter(&(&1.club_id == club.id)) |> Enum.sort_by(& &1.month)
+
+      bridges
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.each(fn [a, b] -> assert b.opening == a.closing and a.closing == a.total end)
     end
+  end
+
+  test "a manager closing override becomes the next month's opening" do
+    {:ok, _} = Ingest.load_file!(@snapshot)
+    jul = Enum.find(DB.month_bridges(), &(&1.club_id == "club-al-ain" and &1.month == "2026-07"))
+    aug_before = Enum.find(DB.month_bridges(), &(&1.club_id == "club-al-ain" and &1.month == "2026-08"))
+    assert aug_before.opening == jul.total
+
+    GmBmd.Closings.set("club-al-ain", "2026-07", 6000, "grant", "counted at the desk")
+
+    jul = Enum.find(DB.month_bridges(), &(&1.club_id == "club-al-ain" and &1.month == "2026-07"))
+    aug = Enum.find(DB.month_bridges(), &(&1.club_id == "club-al-ain" and &1.month == "2026-08"))
+    sep = Enum.find(DB.month_bridges(), &(&1.club_id == "club-al-ain" and &1.month == "2026-09"))
+
+    # the overridden month keeps its computed total but carries the manager's figure
+    assert jul.closing == 6000
+    assert jul.total == aug_before.opening
+    assert jul.closing_override.set_by == "grant"
+    assert aug.opening == 6000
+    assert aug.total == aug_before.total - aug_before.opening + 6000
+    assert sep.opening == aug.closing
+
+    # other clubs untouched
+    other = Enum.find(DB.month_bridges(), &(&1.club_id == "club-motor-city" and &1.month == "2026-08"))
+    assert other.closing_override == nil
+
+    GmBmd.Closings.clear("club-al-ain", "2026-07")
+    aug = Enum.find(DB.month_bridges(), &(&1.club_id == "club-al-ain" and &1.month == "2026-08"))
+    assert aug.opening == aug_before.opening
   end
 
   test "day rows: fed months come from the feed, others reconcile to the bridge" do

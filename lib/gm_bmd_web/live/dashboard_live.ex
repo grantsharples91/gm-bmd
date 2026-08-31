@@ -70,6 +70,34 @@ defmodule GmBmdWeb.DashboardLive do
     {:noreply, socket |> assign(remaining: remaining) |> load()}
   end
 
+  def handle_event("closing-set", %{"value" => raw} = params, socket) do
+    %{month: month, club_id: club_id, identity: identity} = socket.assigns
+
+    with false <- club_id == Gm.all_clubs(),
+         {value, _} <- Integer.parse(String.replace(raw, ~r/[^\d]/, "")) do
+      note = params |> Map.get("note", "") |> String.trim()
+      by = GmBmdWeb.Identity.display_name(identity)
+      GmBmd.Closings.set(club_id, month, value, by, if(note == "", do: nil, else: note))
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "#{socket.assigns.month_label} closing for #{Bridge.club_name(club_id)} set to #{Format.num(value)} — next month opens on it.")
+       |> load()}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Enter a whole number for the month-end closing.")}
+    end
+  end
+
+  def handle_event("closing-clear", _params, socket) do
+    %{month: month, club_id: club_id} = socket.assigns
+
+    if club_id != Gm.all_clubs() do
+      GmBmd.Closings.clear(club_id, month)
+    end
+
+    {:noreply, socket |> put_flash(:info, "Back to the system closing.") |> load()}
+  end
+
   def handle_event("remaining-reset", _params, socket) do
     {:noreply, socket |> assign(remaining: %{}) |> load()}
   end
@@ -168,6 +196,9 @@ defmodule GmBmdWeb.DashboardLive do
       current_month: current,
       through_day: through_day,
       month_label: month_label,
+      prev_month_label: (Bridge.month_meta(prev_month) || %{label: prev_month}).label,
+      closing: Gm.closing_for(month, club_id),
+      prev_closing: Gm.closing_for(prev_month, club_id),
       totals: totals,
       prev: prev,
       prev_bridge: prev_bridge,
@@ -530,7 +561,18 @@ defmodule GmBmdWeb.DashboardLive do
           </div>
 
           <div class="flex min-h-0 flex-1 flex-col p-4">
-            <.bridge_tab :if={@tab == "bridge"} mtd={@mtd_bridge} full={@full_bridge} totals={@totals} full_totals={Gm.aggregate(Gm.rows_for(@month, @club_id))} />
+            <.bridge_tab
+              :if={@tab == "bridge"}
+              mtd={@mtd_bridge}
+              full={@full_bridge}
+              totals={@totals}
+              full_totals={Gm.aggregate(Gm.rows_for(@month, @club_id))}
+              closing={@closing}
+              prev_closing={@prev_closing}
+              club_id={@club_id}
+              month_label={@month_label}
+              prev_month_label={@prev_month_label}
+            />
             <.club_table :if={@tab == "club"} rows={@club_rows} all={@all_row} selected={@club_id} />
             <.position_strip :if={@tab == "position"} rows={if(@club_id == "all", do: @club_rows, else: Enum.filter(@club_rows, &(&1.id == @club_id)))} selected={@club_id} />
             <.revenue_tab :if={@tab == "revenue"} revenue={@revenue} prev_revenue={@prev_revenue} totals={@totals} month={@month} />
@@ -730,7 +772,13 @@ defmodule GmBmdWeb.DashboardLive do
         <span class="shrink-0">MTD <span class="ms-3 sm:ms-6">Full month</span></span>
       </div>
       <div class="mt-2 space-y-1">
-        <.bridge_row label="Opening transactions" mtd={@mtd.opening} full={@full.opening} bold />
+        <.bridge_row
+          label="Opening transactions"
+          note={opening_note(@prev_month_label, @prev_closing)}
+          mtd={@mtd.opening}
+          full={@full.opening}
+          bold
+        />
         <.bridge_row
           :for={{line, i} <- Enum.with_index(@full.lines)}
           label={bridge_label(line, @full_totals)}
@@ -756,6 +804,90 @@ defmodule GmBmdWeb.DashboardLive do
         <.icon name="lock" class="mt-[2px] size-2.5" />
         Duplicates from prior month and cancellations actioned prior month are fixed for the month — known on day 1, so MTD equals the full month and the forecast equals the actual.
       </p>
+      <.closing_block closing={@closing} club_id={@club_id} month_label={@month_label} />
+    </div>
+    """
+  end
+
+  defp opening_note(prev_label, %{overrides: []}), do: "= #{prev_label} closing (system)"
+
+  defp opening_note(prev_label, %{overrides: [o]}),
+    do: "= #{prev_label} closing set by #{o.set_by || "manager"}"
+
+  defp opening_note(prev_label, %{overrides: overrides}),
+    do: "= #{prev_label} closing · #{length(overrides)} clubs set by managers"
+
+  attr :closing, :map, required: true
+  attr :club_id, :string, required: true
+  attr :month_label, :string, required: true
+
+  # Month-end closing — what next month opens on. A single club can be
+  # corrected by hand; the all-clubs view only reports.
+  defp closing_block(assigns) do
+    override = List.first(assigns.closing.overrides)
+    assigns = assign(assigns, override: override, single: assigns.club_id != Gm.all_clubs())
+
+    ~H"""
+    <div class="mt-3 rounded-lg border border-base-300 bg-base-200/40 p-3 print:hidden" id="closing-block">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <span class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+          Month-end closing · carried into next month's opening
+        </span>
+        <span class="text-sm font-bold tabular-nums">{Format.num(@closing.value)}</span>
+      </div>
+
+      <p :if={!@single} class="mt-1 text-[11px] text-muted">
+        Sum of {@closing.clubs} clubs · system computed {Format.num(@closing.computed)}
+        <span :if={@closing.overrides != []}>
+          · {length(@closing.overrides)} set by managers
+        </span>
+        · pick a club to set its closing by hand.
+      </p>
+
+      <div :if={@single}>
+        <p :if={@override} class="mt-1 text-[11px]">
+          <span class="font-bold text-primary">Set by {@override.set_by || "manager"}</span>
+          <span class="text-muted">
+            · {if @override.set_at, do: Calendar.strftime(@override.set_at, "%-d %b %H:%M"), else: ""}
+            · system computed {Format.num(@closing.computed)}
+            <span :if={@override.note}> · “{@override.note}”</span>
+          </span>
+        </p>
+        <p :if={!@override} class="mt-1 text-[11px] text-muted">
+          System figure — the bridge total above. If it is wrong, set the true closing here and {@month_label}'s
+          successor opens on your number.
+        </p>
+        <form phx-submit="closing-set" class="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            name="value"
+            inputmode="numeric"
+            value={@override && @override.value}
+            placeholder={Format.num(@closing.computed)}
+            class="h-8 w-32 rounded-md border border-base-300 bg-base-100 px-2 text-xs tabular-nums"
+            aria-label="Month-end closing"
+          />
+          <input
+            type="text"
+            name="note"
+            value={@override && @override.note}
+            placeholder="Reason (optional)"
+            class="h-8 min-w-0 flex-1 rounded-md border border-base-300 bg-base-100 px-2 text-xs"
+          />
+          <button type="submit" class="h-8 rounded-md bg-navy px-3 text-[11px] font-bold text-navy-content">
+            Set closing
+          </button>
+          <button
+            :if={@override}
+            type="button"
+            phx-click="closing-clear"
+            data-confirm="Drop the manager closing and go back to the system figure?"
+            class="h-8 rounded-md border border-base-300 px-3 text-[11px] font-bold text-muted hover:bg-base-200"
+          >
+            Use system
+          </button>
+        </form>
+      </div>
     </div>
     """
   end

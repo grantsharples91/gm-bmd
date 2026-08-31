@@ -41,6 +41,12 @@ synthesised daily accrual (`GmBmd.Bridge.Synth`) that reconciles exactly to
 the bridge, and three forward months are synthesised (flows held at the last
 full month) so targets can be set ahead.
 
+Openings chain: every month opens on the prior month's closing. The system
+computes each closing from the bridge, and a site manager can override it
+from the Membership bridge tab (single club selected) — the override becomes
+the next month's opening, the overridden month shows both figures and who set
+it (`closing_overrides`, `GmBmd.Closings`).
+
 > The mapping from THOR's MTD metrics onto the nine bridge rows is
 > provisional — the shape is right, the numbers are not yet signed off.
 

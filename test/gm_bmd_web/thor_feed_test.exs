@@ -53,6 +53,41 @@ defmodule GmBmdWeb.ThorFeedTest do
     assert html =~ "Al Faisaliyyah Ladies"
   end
 
+  test "a manager sets the month-end closing from the bridge tab", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    html =
+      view
+      |> element("form[phx-change=filter]")
+      |> render_change(%{"month" => "2026-07", "club_id" => "club-al-ain"})
+
+    assert html =~ "Month-end closing"
+    assert html =~ "Set closing"
+
+    html = view |> element("#closing-block form") |> render_submit(%{"value" => "6,000", "note" => "desk count"})
+    assert html =~ "Set by test"
+    assert html =~ "desk count"
+    assert GmBmd.Closings.get("club-al-ain", "2026-07").value == 6000
+
+    # August now opens on the manager's figure
+    html =
+      view
+      |> element("form[phx-change=filter]")
+      |> render_change(%{"month" => "2026-08", "club_id" => "club-al-ain"})
+
+    assert html =~ "July 2026 closing set by test"
+    assert Bridge.bridge_for("club-al-ain", "2026-08").opening == 6000
+
+    # and can be dropped again
+    view
+    |> element("form[phx-change=filter]")
+    |> render_change(%{"month" => "2026-07", "club_id" => "club-al-ain"})
+
+    html = view |> element("#closing-block button[phx-click=closing-clear]") |> render_click()
+    refute html =~ "Set by test"
+    assert GmBmd.Closings.get("club-al-ain", "2026-07") == nil
+  end
+
   test "ingest status and the authenticated endpoint", %{conn: conn} do
     conn = get(conn, ~p"/api/ingest/status")
     body = json_response(conn, 200)

@@ -64,6 +64,32 @@ defmodule GmBmd.Gm do
     })
   end
 
+  @doc """
+  Month-end closing for a selection — what the following month opens on.
+  `value` is the sum of each club's closing (manager override where set,
+  else the computed total); `computed` is the system figure; `overrides`
+  lists the manager-set ones.
+  """
+  def closing_for(month, club_id) do
+    bridges =
+      club_id
+      |> club_ids()
+      |> Enum.map(&Bridge.bridge_for(&1, month))
+      |> Enum.reject(&is_nil/1)
+
+    overrides =
+      bridges
+      |> Enum.filter(&Map.get(&1, :closing_override))
+      |> Enum.map(fn b -> Map.put(b.closing_override, :club_id, b.club_id) end)
+
+    %{
+      value: bridges |> Enum.map(&(Map.get(&1, :closing) || &1.total)) |> Enum.sum(),
+      computed: bridges |> Enum.map(& &1.total) |> Enum.sum(),
+      overrides: overrides,
+      clubs: length(bridges)
+    }
+  end
+
   @doc "Opening transactions for a selection in a month (a stock — never pro-rated)."
   def opening_for(month, club_id) do
     club_id

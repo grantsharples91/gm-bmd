@@ -17,6 +17,10 @@ defmodule GmBmd.Bridge.DB do
     * billing runs for the days after the feed's as-of date, from the
       month-to-date weekday averages.
 
+  Openings chain: each month opens on the prior month's closing — the site
+  manager's override (`GmBmd.Closings`) when one is set, otherwise the
+  computed total. Only the first month in the feed keeps its own opening.
+
   If the tables are empty (first boot before the loader runs) the seeded
   placeholder feed answers instead, so the dashboard never renders blank.
   """
@@ -127,15 +131,46 @@ defmodule GmBmd.Bridge.DB do
       full_keys = Enum.filter(actual_keys, &(&1 < current_key))
       template_key = List.last(full_keys) || last_actual
 
+      overrides = GmBmd.Closings.all()
+
+      # Chain the months per club: every opening is the prior month's closing
+      # (the manager's override when set, else the computed total). Only the
+      # first month keeps the opening the feed supplied.
+      actual_bridges =
+        Enum.flat_map(club_ids, fn club_id ->
+          {rows, _} =
+            raw_months
+            |> Enum.filter(&(&1.club_id == club_id))
+            |> Enum.sort_by(& &1.month)
+            |> Enum.map_reduce(nil, fn m, carried ->
+              opening = carried || m.opening
+              total = flow_total(opening, m.flows)
+              override = Map.get(overrides, {club_id, m.month})
+
+              row =
+                Map.merge(m, %{
+                  opening: opening,
+                  total: total,
+                  net_growth: total - opening,
+                  closing: (override && override.value) || total,
+                  closing_override: override
+                })
+
+              {row, row.closing}
+            end)
+
+          rows
+        end)
+
       forecast_bridges =
         Enum.flat_map(club_ids, fn club_id ->
-          by_month = raw_months |> Enum.filter(&(&1.club_id == club_id)) |> Map.new(&{&1.month, &1})
+          by_month = actual_bridges |> Enum.filter(&(&1.club_id == club_id)) |> Map.new(&{&1.month, &1})
           template = Map.get(by_month, template_key) || Map.get(by_month, last_actual)
           last = Map.get(by_month, last_actual)
 
           if template && last do
             {rows, _} =
-              Enum.map_reduce(forecast_keys, last.total, fn key, opening ->
+              Enum.map_reduce(forecast_keys, last.closing, fn key, opening ->
                 total = flow_total(opening, template.flows)
 
                 row = %{
@@ -149,7 +184,9 @@ defmodule GmBmd.Bridge.DB do
                   total: total,
                   net_growth: total - opening,
                   revenue_aed: template.revenue_aed,
-                  recurring_collected: template.recurring_collected
+                  recurring_collected: template.recurring_collected,
+                  closing: total,
+                  closing_override: nil
                 }
 
                 {row, total}
@@ -161,7 +198,7 @@ defmodule GmBmd.Bridge.DB do
           end
         end)
 
-      month_bridges = raw_months ++ forecast_bridges
+      month_bridges = actual_bridges ++ forecast_bridges
       day_rows = build_day_rows(months, month_bridges, read_days())
       billing_runs = build_billing_runs(months, month_bridges, read_runs(), as_of)
 
