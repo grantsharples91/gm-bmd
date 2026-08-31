@@ -328,11 +328,6 @@ defmodule GmBmd.Gm do
         end
       end)
 
-    # Outturn = where we are (the MTD total) plus what is still to come. Equal
-    # to opening + signed forecasts when the rows explain the count fully.
-    base = Enum.reduce(rows, mtd.total, fn r, acc -> acc + r.sign * r.remaining end)
-    remaining_gross = rows |> Enum.map(& &1.remaining) |> Enum.sum()
-
     legacy = finance_targets_for(club_id)
 
     targets =
@@ -359,6 +354,17 @@ defmodule GmBmd.Gm do
     forecast_to_run =
       max(round(if(scheduled_left > 0, do: scheduled_left, else: run_full - ran)), 0)
 
+    # On the transaction-count basis the MTD total only holds transactions that
+    # have happened, so the members still to run must be added back; their
+    # failures are already netted off by the run-driven default row. On the
+    # stock basis they sit in the opening already.
+    count_basis? = mtd_agg.transactions_known
+    still_to_run = if count_basis?, do: forecast_to_run, else: 0
+
+    # Outturn = where we are (the MTD total) plus what is still to come.
+    base = Enum.reduce(rows, mtd.total + still_to_run, fn r, acc -> acc + r.sign * r.remaining end)
+    remaining_gross = rows |> Enum.map(& &1.remaining) |> Enum.sum()
+
     runs_done = days_elapsed
     new_sales_row = Enum.find(rows, &(&1.key == :new_sales))
 
@@ -384,6 +390,8 @@ defmodule GmBmd.Gm do
       billing_runs_done: runs_done,
       ran: round(ran),
       forecast_to_run: forecast_to_run,
+      count_basis?: count_basis?,
+      still_to_run: still_to_run,
       total_to_run: round(ran) + forecast_to_run,
       per_run_average: if(runs_done > 0, do: round(ran / runs_done), else: 0),
       avg_due_left:

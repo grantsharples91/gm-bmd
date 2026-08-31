@@ -306,28 +306,25 @@ defmodule GmBmd.Daily do
     mtd_forecast_total = past |> Enum.map(& &1.forecast.net) |> Enum.sum()
     closing_actual = opening + mtd_actual_total
 
-    # Reconcile to the outturn: rounding residual lands on the last forecast
-    # day's new sales, so both pages agree to the unit.
-    rows =
+    # Reconcile to the outturn so both pages close on the same number. The
+    # residual goes to recurring dues on the last forecast day; if that would
+    # go negative, it is taken from the other positives on that day (never
+    # below zero) — a count cannot fall, so an outturn below the MTD count is
+    # left as an `unreconciled` gap rather than faked.
+    {rows, unreconciled} =
       if outturn_close != nil and future != [] do
         future_net = future |> Enum.map(& &1.forecast.net) |> Enum.sum()
         residual = round(outturn_close - (closing_actual + future_net))
+        last_future_day = List.last(future).day
 
         rows =
-          if residual != 0 do
-            last_future_day = List.last(future).day
-
-            Enum.map(rows, fn row ->
-              if row.day == last_future_day do
-                fc = %{row.forecast | recurring: max(row.forecast.recurring + residual, 0)}
-                %{row | forecast: %{fc | net: net_of(fc)}}
-              else
-                row
-              end
-            end)
-          else
-            rows
-          end
+          Enum.map(rows, fn row ->
+            if row.day == last_future_day and residual != 0 do
+              %{row | forecast: absorb_residual(row.forecast, residual)}
+            else
+              row
+            end
+          end)
 
         {rows, _} =
           Enum.map_reduce(rows, opening, fn row, running ->
@@ -335,9 +332,9 @@ defmodule GmBmd.Daily do
             {%{row | closing_position: running}, running}
           end)
 
-        rows
+        {rows, round(outturn_close) - List.last(rows).closing_position}
       else
-        rows
+        {rows, 0}
       end
 
     future = Enum.reject(rows, & &1.past)
@@ -390,12 +387,30 @@ defmodule GmBmd.Daily do
       variance: mtd_actual_total - mtd_forecast_total,
       closing_actual: closing_actual,
       month_forecast_close: month_forecast_close,
+      unreconciled: unreconciled,
       month_target: month_target,
       need_per_day: round(GmBmd.Rules.need_per_day(closing_actual, month_target, days_left)),
       columns: columns,
       reforecast: reforecast,
       source: source
     }
+  end
+
+  # Apply a residual to a forecast day's positives: recurring first, then the
+  # typed rows, none below zero.
+  defp absorb_residual(fc, residual) do
+    {fc, _left} =
+      Enum.reduce([:recurring, :new_sales, :upfront, :prior_recoveries, :defaults_collected], {fc, residual}, fn key, {fc, left} ->
+        if left == 0 do
+          {fc, 0}
+        else
+          current = Map.fetch!(fc, key)
+          new = max(current + left, 0)
+          {Map.put(fc, key, new), left - (new - current)}
+        end
+      end)
+
+    %{fc | net: net_of(fc)}
   end
 
   @doc "TSV of the day table for the copy button."

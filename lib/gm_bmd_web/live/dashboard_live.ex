@@ -1230,6 +1230,15 @@ defmodule GmBmdWeb.DashboardLive do
                 {num(r.forecast)}
               </td>
             </tr>
+            <tr :if={@outturn.count_basis?} class="border-t border-base-300 text-muted">
+              <td class="px-1 py-1">
+                Members still to run
+                <span class="block text-[10px]">from the billing schedule — the defaults among them come off above</span>
+              </td>
+              <td class="px-1 py-1 text-end tabular-nums">—</td>
+              <td class="px-1 py-1 text-end tabular-nums">+{num(@outturn.still_to_run)}</td>
+              <td class="px-1 py-1 text-end tabular-nums">+{num(@outturn.still_to_run)}</td>
+            </tr>
             <tr class="border-t-2 border-base-content font-bold">
               <td class="px-1 py-1">Total transactions</td>
               <td class="px-1 py-1 text-end tabular-nums">{num(@outturn.mtd_total)}</td>

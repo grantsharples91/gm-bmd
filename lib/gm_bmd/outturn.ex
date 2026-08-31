@@ -154,7 +154,8 @@ defmodule GmBmd.Outturn do
         end
       end)
 
-    base = Enum.reduce(rows, raw.mtd_total, fn r, acc -> acc + r.sign * r.remaining end)
+    base =
+      Enum.reduce(rows, raw.mtd_total + raw.still_to_run, fn r, acc -> acc + r.sign * r.remaining end)
 
     sales_remaining =
       rows |> Enum.filter(&(&1.driver == :sales)) |> Enum.map(& &1.remaining) |> Enum.sum()
@@ -166,6 +167,7 @@ defmodule GmBmd.Outturn do
 
     waterfall = [
       %{key: :mtd, label: "MTD position", value: raw.mtd_total, kind: :start, run_driven: false, note: "day #{raw.days_elapsed} of #{raw.days_total}"},
+      %{key: :to_run, label: "Members still to run", value: raw.still_to_run, kind: :add, run_driven: true, note: "#{n(to_run)} on the billing schedule — defaults among them come off below", hidden: not raw.count_basis?},
       %{key: :new_sales, label: "Remaining sales", value: get.(:new_sales).remaining, kind: :add, run_driven: false, note: "sales-driven"},
       %{key: :upfront, label: "Remaining upfronts", value: get.(:upfront).remaining, kind: :add, run_driven: false, note: "sales-driven"},
       %{key: :recoveries, label: "Remaining prior recoveries", value: rem_recoveries + rem_agency, kind: :add, run_driven: true, note: "#{runs_left} daily runs × #{n(assumptions.recovery_per_run + assumptions.agency_per_run)}"},
@@ -175,6 +177,7 @@ defmodule GmBmd.Outturn do
       %{key: :outturn, label: "Outturn", value: base, kind: :end, run_driven: false, note: "vs target #{n(raw.total_target)}"}
     ]
 
+    waterfall = Enum.reject(waterfall, &Map.get(&1, :hidden, false))
     forecast_by_row = Map.new(rows, fn r -> {r.key, r.forecast} end)
 
     Map.merge(raw, %{

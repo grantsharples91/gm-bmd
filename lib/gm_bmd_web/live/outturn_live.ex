@@ -137,7 +137,7 @@ defmodule GmBmdWeb.OutturnLive do
     defaults_input = value_of.("defaults")
 
     position =
-      Enum.reduce(fields, ot.mtd_total, fn f, acc -> acc + f.sign * value_of.(f.key) end) -
+      Enum.reduce(fields, ot.mtd_total + ot.still_to_run, fn f, acc -> acc + f.sign * value_of.(f.key) end) -
         (defaults_input - df.mtd_outstanding)
 
     target = resolved.values.total

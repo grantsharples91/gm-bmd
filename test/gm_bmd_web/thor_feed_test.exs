@@ -82,6 +82,10 @@ defmodule GmBmdWeb.ThorFeedTest do
     assert day1.actual.net == 398
     assert day1.actual.transactions == 398
     assert model.month_forecast_close == ot.base
+    assert model.unreconciled == 0
+    # on the count basis the outturn adds the members still to run
+    assert ot.count_basis?
+    assert ot.still_to_run == ot.forecast_to_run
   end
 
   test "dashboard narrows to a club that only exists in the feed", %{conn: conn} do

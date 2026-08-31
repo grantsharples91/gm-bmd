@@ -49,8 +49,16 @@ defmodule GmBmd.OutturnTest do
           ot.base
         )
 
-      assert model.month_forecast_close == ot.base,
-             "daily close #{model.month_forecast_close} != outturn #{ot.base} for #{club_id}"
+      # Seeds carry no transaction count, so the outturn is on the stock basis
+      # while Daily always counts collected transactions; the two agree unless
+      # the outturn sits below what has already been collected, which Daily
+      # reports rather than fakes.
+      assert model.month_forecast_close + model.unreconciled == ot.base,
+             "daily close #{model.month_forecast_close} (+#{model.unreconciled}) != outturn #{ot.base} for #{club_id}"
+
+      if model.unreconciled != 0 do
+        assert model.month_forecast_close == model.closing_actual
+      end
     end
   end
 
