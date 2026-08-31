@@ -3,10 +3,10 @@ defmodule GmBmd.Bridge do
   The data boundary for everything the dashboard reads.
 
   All screen maths goes through this module, which delegates to the configured
-  `GmBmd.Bridge.Source`. Today that is `GmBmd.Bridge.Seeds` (deterministic
-  placeholder data, same shape as the finance sheet); when the real database
-  feed lands, implement the `Source` behaviour over the production tables and
-  point `config :gm_bmd, :bridge_source` at it — no screen code changes.
+  `GmBmd.Bridge.Source`. In dev and prod that is `GmBmd.Bridge.DB` — the THOR
+  feed in the `bridge_*` tables, filled by `POST /api/ingest` or the boot-time
+  snapshot loader; tests run on `GmBmd.Bridge.Seeds` (deterministic
+  placeholder data, same shape). `config :gm_bmd, :bridge_source` picks.
   """
 
   @bridge_rows [
@@ -69,6 +69,7 @@ defmodule GmBmd.Bridge do
   def day_rows(month), do: source().day_rows(month)
   def billing_runs(month), do: source().billing_runs(month)
   def finance_targets, do: source().finance_targets()
+  def as_of, do: source().as_of()
 
   def club_name(club_id) do
     case Enum.find(clubs(), &(&1.id == club_id)) do
@@ -82,21 +83,47 @@ defmodule GmBmd.Bridge do
   def bridge_for(club_id, month),
     do: Enum.find(month_bridges(), &(&1.club_id == club_id and &1.month == month))
 
-  @doc "Current month key ('YYYY-MM') — today's month clamped into the dataset."
+  @doc """
+  Current month key ('YYYY-MM') — today's month, never past the feed's as-of
+  month (the dashboard stays on the last month with data until the next
+  sync), clamped into the dataset.
+  """
   def current_month_key do
     keys = Enum.map(months(), & &1.key)
     today = today_dubai()
     key = month_key(today.year, today.month)
+
+    key =
+      case as_of() do
+        %Date{} = as_of -> min(key, month_key(as_of.year, as_of.month))
+        nil -> key
+      end
+
     if key in keys, do: key, else: List.last(keys)
   end
 
-  @doc "Day of month for MTD maths — today when the current month is live."
+  @doc """
+  Day of month for MTD maths — today when the current month is live, the full
+  month when it has closed, and never past the feed's as-of date so MTD never
+  claims days the data does not cover.
+  """
   def today_day do
     today = today_dubai()
+    current = current_month_key()
+    [year, month] = current |> String.split("-") |> Enum.map(&String.to_integer/1)
 
-    if month_key(today.year, today.month) == current_month_key(),
-      do: today.day,
-      else: Date.days_in_month(today)
+    day =
+      if month_key(today.year, today.month) == current,
+        do: today.day,
+        else: Date.days_in_month(Date.new!(year, month, 1))
+
+    case as_of() do
+      %Date{} = as_of ->
+        if month_key(as_of.year, as_of.month) == current, do: min(day, as_of.day), else: day
+
+      nil ->
+        day
+    end
   end
 
   @doc "Months selectable on the dashboards: up to the current month, newest first."
@@ -110,7 +137,8 @@ defmodule GmBmd.Bridge do
   def days_in_month(%{year: year, month: month}),
     do: Date.days_in_month(Date.new!(year, month, 1))
 
-  defp today_dubai do
+  @doc "Today in Dubai (UTC+4) — the business calendar every screen runs on."
+  def today_dubai do
     DateTime.utc_now() |> DateTime.add(4 * 3600, :second) |> DateTime.to_date()
   end
 end

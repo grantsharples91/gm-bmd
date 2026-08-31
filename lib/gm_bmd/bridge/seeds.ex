@@ -12,6 +12,8 @@ defmodule GmBmd.Bridge.Seeds do
   @behaviour GmBmd.Bridge.Source
 
   alias GmBmd.Bridge
+  alias GmBmd.Bridge.Shape
+  alias GmBmd.Bridge.Synth
 
   @clubs [
     %{id: "club-motor-city", name: "Motor City", city: "Dubai"},
@@ -233,40 +235,18 @@ defmodule GmBmd.Bridge.Seeds do
           []
 
         meta ->
-          dim = Bridge.days_in_month(meta)
-
           Enum.flat_map(@clubs, fn club ->
             case Enum.find(month_bridges(), &(&1.club_id == club.id and &1.month == month)) do
-              nil ->
-                []
-
-              bridge ->
-                base = round((bridge.opening - bridge.flows.duplicates) * 0.93)
-                noise = noise_stream("runs-#{club.id}-#{month}", dim)
-
-                weights =
-                  for day <- 1..dim do
-                    run_shape(day, dow(meta, day), dim) * (0.88 + Enum.at(noise, day - 1) * 0.24)
-                  end
-
-                due = distribute(base, weights)
-                pct_noise = noise_stream("runpct-#{club.id}-#{month}", dim)
-
-                for day <- 1..dim do
-                  %{
-                    club_id: club.id,
-                    month: month,
-                    day: day,
-                    date: Date.new!(meta.year, meta.month, day),
-                    members_due: Enum.at(due, day - 1),
-                    last_collected_pct: 0.9 + Enum.at(pct_noise, day - 1) * 0.06
-                  }
-                end
+              nil -> []
+              bridge -> Synth.billing_runs(club.id, bridge, meta.year, meta.month)
             end
           end)
       end
     end)
   end
+
+  @impl true
+  def as_of, do: nil
 
   @impl true
   def finance_targets do
@@ -299,178 +279,16 @@ defmodule GmBmd.Bridge.Seeds do
         []
 
       meta ->
-        dim = Bridge.days_in_month(meta)
-
         Enum.flat_map(@clubs, fn club ->
           case Enum.find(month_bridges(), &(&1.club_id == club.id and &1.month == month)) do
             nil -> []
-            bridge -> accrue_club(club, bridge, meta, dim)
+            bridge -> Synth.day_rows(club.id, bridge, meta.year, meta.month)
           end
         end)
     end
   end
 
-  defp accrue_club(club, bridge, meta, dim) do
-    seed = "#{club.id}-#{bridge.month}"
-
-    per_key =
-      Map.new(Bridge.bridge_row_keys(), fn key ->
-        values =
-          if Bridge.fixed_row?(key) do
-            # Fixed rows land in full on day 1 — known before the month starts.
-            [Map.fetch!(bridge.flows, key) | List.duplicate(0, dim - 1)]
-          else
-            distribute(Map.fetch!(bridge.flows, key), weights_for(key, meta, dim, seed))
-          end
-
-        {key, values}
-      end)
-
-    recurring_total = round((bridge.opening - bridge.flows.duplicates) * 0.93)
-    recurring = distribute(recurring_total, weights_for(:recurring, meta, dim, seed))
-    raised = distribute(bridge.defaults_raised, weights_for(:defaults, meta, dim, seed))
-
-    recovered =
-      distribute(bridge.defaults_recovered, weights_for(:defaults_recovered, meta, dim, seed))
-
-    unit = Bridge.unit_aed()
-
-    for day <- 1..dim do
-      i = day - 1
-      flows = Map.new(per_key, fn {key, values} -> {key, Enum.at(values, i)} end)
-      recurring_collected = Enum.at(recurring, i)
-      day_recovered = Enum.at(recovered, i)
-
-      revenue =
-        recurring_collected * unit.recurring +
-          flows.new_sales * unit.new_sale +
-          flows.upfront * unit.upfront +
-          (flows.prior_default_collections + flows.agency_collections + day_recovered) *
-            unit.recovery -
-          flows.refunds * unit.refund
-
-      %{
-        club_id: club.id,
-        date: Date.new!(meta.year, meta.month, day),
-        flows: flows,
-        defaults_raised: Enum.at(raised, i),
-        defaults_recovered: day_recovered,
-        recurring_collected: recurring_collected,
-        revenue_aed: revenue
-      }
-    end
-  end
-
-  # Weight profiles per bridge row: how the row lands across the days.
-  defp weights_for(key, meta, dim, seed) do
-    noise = noise_stream("#{key}-#{seed}", dim)
-
-    for day <- 1..dim do
-      d = dow(meta, day)
-      n = 0.65 + Enum.at(noise, day - 1) * 0.75
-      run = run_shape(day, d, dim) * n
-
-      case key do
-        # Sales-type rows land unevenly, heavier at weekends and month-end.
-        k when k in [:new_sales, :upfront] ->
-          week =
-            case d do
-              :fri -> 0.55
-              :sat -> 1.35
-              _ -> 1.0
-            end
-
-          tail = if day > dim - 4, do: 1.3, else: 1.0
-          n * week * tail
-
-        # Run-driven rows follow the size of that day's billing run.
-        k when k in [:recurring, :defaults, :refunds, :cancel_within] ->
-          run
-
-        # Recoveries trail the day's run.
-        k when k in [:prior_default_collections, :defaults_recovered] ->
-          0.6 * run + 0.4 * n
-
-        _ ->
-          n
-      end
-    end
-  end
-
-  @doc """
-  Relative size of one day's billing run. UAE shape: Fri quiet, Sat heavy, and
-  the first days of the month carry the recurring anniversaries.
-  """
-  def run_shape(day, dow, dim) do
-    week =
-      case dow do
-        :fri -> 0.62
-        :sat -> 1.28
-        :sun -> 1.06
-        _ -> 1.0
-      end
-
-    start =
-      cond do
-        day <= 5 -> 1.45
-        day <= 10 -> 1.18
-        day > dim - 3 -> 1.08
-        true -> 1.0
-      end
-
-    week * start
-  end
-
-  @doc "Split a total across weights as integers that sum exactly to the total."
-  def distribute(total, weights) do
-    sum = Enum.sum(weights)
-
-    if sum <= 0 do
-      List.duplicate(0, length(weights) - 1) ++ [round(total)]
-    else
-      raw = Enum.map(weights, fn w -> total * w / sum end)
-      floors = Enum.map(raw, &floor/1)
-      left = round(total) - Enum.sum(floors)
-
-      order =
-        raw
-        |> Enum.with_index()
-        |> Enum.sort_by(fn {v, _i} -> -(v - floor(v)) end)
-        |> Enum.map(fn {_v, i} -> i end)
-
-      bump = order |> Stream.cycle() |> Enum.take(max(left, 0)) |> Enum.frequencies()
-
-      floors
-      |> Enum.with_index()
-      |> Enum.map(fn {v, i} -> v + Map.get(bump, i, 0) end)
-    end
-  end
-
-  defp dow(meta, day) do
-    case Date.day_of_week(Date.new!(meta.year, meta.month, day)) do
-      5 -> :fri
-      6 -> :sat
-      7 -> :sun
-      _ -> :weekday
-    end
-  end
-
-  # Deterministic noise in [0, 1) — same seed string, same stream, every boot.
-  defp noise_stream(seed, count) do
-    state =
-      :rand.seed_s(
-        :exsss,
-        {:erlang.phash2(seed, 1_000_000), :erlang.phash2({seed, :a}, 1_000_000),
-         :erlang.phash2({seed, :b}, 1_000_000)}
-      )
-
-    {values, _} =
-      Enum.map_reduce(1..count, state, fn _, s ->
-        :rand.uniform_s(s)
-      end)
-
-    values
-  end
+  defdelegate distribute(total, weights), to: Shape
 
   defp flow_total(opening, flows) do
     Enum.reduce(Bridge.bridge_rows(), opening, fn row, acc ->

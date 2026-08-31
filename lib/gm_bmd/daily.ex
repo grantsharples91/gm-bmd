@@ -51,7 +51,7 @@ defmodule GmBmd.Daily do
 
   # Day-of-week + calendar weight for one KPI on one day (UAE trading pattern).
   defp weight_for(kpi, day, dow, dim) do
-    run = GmBmd.Bridge.Seeds.run_shape(day, dow, dim)
+    run = GmBmd.Bridge.Shape.run_shape(day, dow, dim)
 
     case kpi do
       :new_sales ->
@@ -218,14 +218,14 @@ defmodule GmBmd.Daily do
 
     planned =
       Map.new(@kpi_keys, fn key ->
-        {key, GmBmd.Bridge.Seeds.distribute(targets[key], weights[key])}
+        {key, GmBmd.Bridge.Shape.distribute(targets[key], weights[key])}
       end)
 
     remaining_split =
       Map.new(@kpi_keys, fn key ->
         left = max(targets[key] - mtd_of.(key), 0)
         future_w = weights[key] |> Enum.with_index(1) |> Enum.map(fn {w, d} -> if d > days_elapsed, do: w, else: 0 end)
-        {key, GmBmd.Bridge.Seeds.distribute(left, future_w)}
+        {key, GmBmd.Bridge.Shape.distribute(left, future_w)}
       end)
 
     opening = Gm.opening_for(month, club_id) - fixed_day1_total(month, club_id)

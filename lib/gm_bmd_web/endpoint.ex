@@ -33,6 +33,8 @@ defmodule GmBmdWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
+    # The THOR feed payload is a few MB for a full reload.
+    length: 50_000_000,
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride

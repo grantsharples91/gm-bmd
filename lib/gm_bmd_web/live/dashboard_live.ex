@@ -1247,7 +1247,7 @@ defmodule GmBmdWeb.DashboardLive do
           <strong class="text-base-content">Needs attention</strong>
           only fires on material gaps, so an empty list means the month is behaving.
         </li>
-        <li>Read-only placeholder data until the database feed is connected; the tabs below break the same month down by club and by driver.</li>
+        <li>Read-only. Figures come from the THOR feed (see the badge in the header for how current they are); the tabs below break the same month down by club and by driver.</li>
       </ul>
     </.popover>
     """

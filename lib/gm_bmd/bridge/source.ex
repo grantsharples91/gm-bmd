@@ -25,4 +25,6 @@ defmodule GmBmd.Bridge.Source do
   @callback day_rows(String.t()) :: [map()]
   @callback billing_runs(String.t()) :: [map()]
   @callback finance_targets() :: [map()]
+  @doc "Latest date the feed has data for (nil = data is complete to today)."
+  @callback as_of() :: Date.t() | nil
 end

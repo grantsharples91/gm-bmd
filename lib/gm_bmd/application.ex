@@ -10,6 +10,7 @@ defmodule GmBmd.Application do
       {Ecto.Migrator,
        repos: Application.fetch_env!(:gm_bmd, :ecto_repos),
        skip: not Application.fetch_env!(:gm_bmd, :migrate_on_boot)},
+      GmBmd.Bridge.Loader,
       {Phoenix.PubSub, name: GmBmd.PubSub},
       GmBmdWeb.Endpoint
     ]

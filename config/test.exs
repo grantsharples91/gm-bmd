@@ -23,5 +23,7 @@ config :gm_bmd, :dev_identity, %{
   "x-thor-theme" => "light"
 }
 
+config :gm_bmd, bridge_source: GmBmd.Bridge.Seeds, load_bridge_on_boot: false
+
 config :logger, level: :warning
 config :phoenix, :plug_init_mode, :runtime

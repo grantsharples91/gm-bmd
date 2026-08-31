@@ -21,6 +21,9 @@ if config_env() == :prod do
 
   config :gm_bmd, migrate_on_boot: true
 
+  # Bearer token for POST /api/ingest (the THOR feed sync). Unset = disabled.
+  config :gm_bmd, ingest_token: System.get_env("INGEST_TOKEN")
+
   secret_key_base =
     System.get_env("SECRET_KEY_BASE") ||
       raise """

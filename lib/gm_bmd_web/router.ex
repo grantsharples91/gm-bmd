@@ -16,10 +16,21 @@ defmodule GmBmdWeb.Router do
     plug :accepts, ["json", "html"]
   end
 
+  pipeline :api do
+    plug :accepts, ["json"]
+  end
+
   scope "/", GmBmdWeb do
     pipe_through :health
 
     get "/healthz", HealthController, :index
+  end
+
+  scope "/api", GmBmdWeb do
+    pipe_through :api
+
+    get "/ingest/status", IngestController, :status
+    post "/ingest", IngestController, :create
   end
 
   scope "/", GmBmdWeb do

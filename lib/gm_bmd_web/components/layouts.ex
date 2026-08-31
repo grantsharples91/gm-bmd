@@ -26,6 +26,7 @@ defmodule GmBmdWeb.Layouts do
           <.nav_link navigate={~p"/targets"} label={gettext("Targets")} />
         </nav>
         <span class="ms-auto flex items-center gap-3">
+          <.feed_badge />
           <span
             id="theme-toggle"
             phx-hook="ThemeToggle"
@@ -59,6 +60,37 @@ defmodule GmBmdWeb.Layouts do
 
   attr :navigate, :string, required: true
   attr :label, :string, required: true
+
+  # Where the numbers come from: the THOR feed's as-of date, or the seeded
+  # placeholder set when no feed has been loaded yet.
+  defp feed_badge(assigns) do
+    assigns = assign(assigns, :feed, feed_info())
+
+    ~H"""
+    <span
+      class="hidden items-center gap-1.5 rounded-md border border-base-300 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted sm:inline-flex"
+      title={@feed.title}
+    >
+      <span class={["size-1.5 rounded-full", @feed.live? && "bg-positive", !@feed.live? && "bg-base-300"]}>
+      </span>
+      {@feed.label}
+    </span>
+    """
+  end
+
+  defp feed_info do
+    case GmBmd.Bridge.as_of() do
+      %Date{} = as_of ->
+        %{
+          live?: true,
+          label: "THOR · data to #{Calendar.strftime(as_of, "%-d %b")}",
+          title: "Figures from the THOR Executive Forecast feed (Telr), complete to #{Calendar.strftime(as_of, "%-d %B %Y")}. Mapping is provisional."
+        }
+
+      nil ->
+        %{live?: false, label: "Placeholder data", title: "Seeded placeholder figures — no feed loaded."}
+    end
+  end
 
   defp nav_link(assigns) do
     ~H"""

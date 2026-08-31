@@ -19,19 +19,36 @@ single source of truth; revenue (AED) is derived and always secondary.
 
 ## Data
 
-The bridge data is **seeded placeholder data** (`GmBmd.Bridge.Seeds`) —
-deterministic, finance-sheet-shaped, five clubs, Jun–Dec 2026. The real feed
-plugs in by implementing the six-callback `GmBmd.Bridge.Source` behaviour over
-the production tables and setting:
+The dashboard reads the **THOR feed** through `GmBmd.Bridge.DB`: all 36 clubs,
+one bridge row per club-month (Mar 2026 onwards), day rows and billing runs
+for the months the feed covers by day. It lives in this action's Postgres
+(`bridge_clubs`, `bridge_months`, `bridge_days`, `billing_runs`,
+`bridge_meta`) and is filled two ways:
 
-```elixir
-config :gm_bmd, :bridge_source, GmBmd.Bridge.DB
-```
+* **Boot-time bootstrap** — when the tables are empty, `GmBmd.Bridge.Loader`
+  loads `priv/bridge/thor_snapshot.json` (a snapshot of the THOR Executive
+  Forecast MTD summary, Telr feed). It never overwrites a feed already loaded.
+* **`POST /api/ingest`** — the sync contract for the platform. Bearer-token
+  authenticated (`INGEST_TOKEN` in the action environment; disabled when
+  unset), takes the JSON shape documented in `GmBmd.Bridge.Ingest`, upserts
+  on club-month / club-day, so a daily job can send just the current month.
+  `GET /api/ingest/status` shows what is loaded and the as-of date.
 
-No screen code changes. Targets, approvals and GM forecasts are already real:
-they live in this action's Postgres (`targets`, `target_states`,
-`gm_forecasts`), seeded on first boot (prev + current month approved, next
-month draft).
+The header badge (`THOR · data to 30 Aug`) shows the feed's as-of date; MTD
+maths never runs past it, and the dashboard stays on the last month with
+data until the next sync. Months the feed only carries as totals get a
+synthesised daily accrual (`GmBmd.Bridge.Synth`) that reconciles exactly to
+the bridge, and three forward months are synthesised (flows held at the last
+full month) so targets can be set ahead.
+
+> The mapping from THOR's MTD metrics onto the nine bridge rows is
+> provisional — the shape is right, the numbers are not yet signed off.
+
+Tests run on `GmBmd.Bridge.Seeds` (deterministic placeholder data — five
+clubs, Jun–Dec 2026); `test/gm_bmd_web/thor_feed_test.exs` swaps in the DB
+source and renders every screen on the real snapshot. Targets, approvals and
+GM forecasts live in `targets`, `target_states`, `gm_forecasts`, seeded on
+first boot (prev + current month approved, next month draft).
 
 ## Development
 

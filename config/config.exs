@@ -3,7 +3,9 @@ import Config
 config :gm_bmd,
   ecto_repos: [GmBmd.Repo],
   generators: [timestamp_type: :utc_datetime_usec, binary_id: true],
-  migrate_on_boot: false
+  migrate_on_boot: false,
+  bridge_source: GmBmd.Bridge.DB,
+  load_bridge_on_boot: true
 
 config :gm_bmd, GmBmdWeb.Endpoint,
   url: [host: "localhost"],
