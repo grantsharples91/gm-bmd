@@ -34,8 +34,11 @@ defmodule GmBmd.Bridge.Synth do
       end)
 
     recurring_total =
-      Map.get(bridge, :recurring_collected) ||
-        round((bridge.opening - bridge.flows.duplicates) * 0.93)
+      max(
+        Map.get(bridge, :recurring_collected) ||
+          round((bridge.opening - bridge.flows.duplicates) * 0.93),
+        0
+      )
 
     recurring = Shape.distribute(recurring_total, weights(:recurring, year, month, dim, seed))
     raised = Shape.distribute(bridge.defaults_raised, weights(:defaults, year, month, dim, seed))
@@ -78,7 +81,9 @@ defmodule GmBmd.Bridge.Synth do
   def billing_runs(club_id, bridge, year, month) do
     dim = Date.days_in_month(Date.new!(year, month, 1))
     key = Bridge.month_key(year, month)
-    base = round((bridge.opening - bridge.flows.duplicates) * 0.93)
+    # Never negative: a feed month can carry more duplicates than its
+    # (derived) opening while the THOR mapping is provisional.
+    base = max(round((bridge.opening - bridge.flows.duplicates) * 0.93), 0)
     noise = Shape.noise_stream("runs-#{club_id}-#{key}", dim)
 
     weights =
