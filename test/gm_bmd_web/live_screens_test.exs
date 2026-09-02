@@ -28,7 +28,7 @@ defmodule GmBmdWeb.LiveScreensTest do
     {:ok, _view, html} = live(conn, ~p"/daily")
     assert html =~ "Daily transactions"
     assert html =~ "Day table"
-    assert html =~ "forecast close"
+    assert html =~ "expected close"
   end
 
   test "outturn calculator edits move the position", %{conn: conn} do
