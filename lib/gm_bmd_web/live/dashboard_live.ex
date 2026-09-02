@@ -861,9 +861,6 @@ defmodule GmBmdWeb.DashboardLive do
     """
   end
 
-  attr :attention, :list, required: true
-  attr :club_id, :string, required: true
-
   # The membership bridge as a waterfall: opening on the left, each movement
   # as a floating step, total transactions on the right. Zero rows are left
   # out so the eye lands on what moved. Clicking through opens the full
@@ -962,6 +959,9 @@ defmodule GmBmdWeb.DashboardLive do
     </section>
     """
   end
+
+  attr :attention, :list, required: true
+  attr :club_id, :string, required: true
 
   defp attention_panel(assigns) do
     ~H"""
