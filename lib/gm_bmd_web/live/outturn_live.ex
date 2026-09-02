@@ -27,11 +27,13 @@ defmodule GmBmdWeb.OutturnLive do
   end
 
   @impl true
-  def handle_event("filter", %{"month" => month, "club_id" => club_id}, socket) do
+  def handle_event("filter", params, socket) do
+    month = Map.get(params, "month", socket.assigns.month)
+
     month =
       if Enum.any?(Bridge.picker_months(), &(&1.key == month)), do: month, else: socket.assigns.month
 
-    club_id = if Enum.any?(Bridge.clubs(), &(&1.id == club_id)), do: club_id, else: Gm.all_clubs()
+    club_id = GmBmdWeb.Scope.from_params(params)
     {:noreply, socket |> assign(month: month, club_id: club_id, edits: %{}, saved: false) |> load()}
   end
 
@@ -193,7 +195,7 @@ defmodule GmBmdWeb.OutturnLive do
               :for={
                 {label, value, note} <- [
                   {"MTD position", num(@ot.mtd_total),
-                   "#{if @club_id == "all", do: "All clubs", else: Bridge.club_name(@club_id)} · #{@month_label}"},
+                   "#{Gm.scope_name(@club_id)} · #{@month_label}"},
                   {"Day", "#{@ot.days_elapsed} of #{@ot.days_total}", "month progress"},
                   {"Days left", "#{@ot.days_remaining}", "#{length(@ot.billing_runs_left)} billing runs left"},
                   {"Transactions still to run", num(@ot.forecast_to_run), "from the billing schedule"}

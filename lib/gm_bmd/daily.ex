@@ -21,14 +21,14 @@ defmodule GmBmd.Daily do
   alias GmBmd.Gm
 
   @daily_kpis [
-    %{key: :recurring, label: "Recurring dues", short: "Recurring", sign: 1, colour: "#8DA3B8"},
-    %{key: :new_sales, label: "New sales", short: "New sales", sign: 1, colour: "#022A3A"},
-    %{key: :prior_recoveries, label: "Prior recoveries", short: "Prior rec.", sign: 1, colour: "#2F6E86"},
-    %{key: :upfront, label: "Upfronts", short: "Upfronts", sign: 1, colour: "#F4CD00"},
-    %{key: :defaults_raised, label: "Defaults raised", short: "Def. raised", sign: -1, colour: "#B91C1C"},
-    %{key: :defaults_collected, label: "Defaults collected", short: "Def. coll.", sign: 0, colour: "#059669"},
-    %{key: :cancel_within, label: "Cx within month", short: "Cx in-month", sign: -1, colour: "#E06666"},
-    %{key: :refunds, label: "Refunds", short: "Refunds", sign: -1, colour: "#F3A6A6"}
+    %{key: :recurring, label: "Recurring dues", short: "Recurring", sign: 1, colour: "#C7D0D9"},
+    %{key: :new_sales, label: "New sales", short: "New sales", sign: 1, colour: "#09293A"},
+    %{key: :prior_recoveries, label: "Prior recoveries", short: "Prior rec.", sign: 1, colour: "#5D8AA0"},
+    %{key: :upfront, label: "Upfronts", short: "Upfronts", sign: 1, colour: "#F2CE0F"},
+    %{key: :defaults_raised, label: "Defaults raised", short: "Def. raised", sign: -1, colour: "#C0392B"},
+    %{key: :defaults_collected, label: "Defaults collected", short: "Def. coll.", sign: 0, colour: "#8FB7C4"},
+    %{key: :cancel_within, label: "Cx within month", short: "Cx in-month", sign: -1, colour: "#9FA8B3"},
+    %{key: :refunds, label: "Refunds", short: "Refunds", sign: -1, colour: "#D5DBE2"}
   ]
 
   @kpi_keys Enum.map(@daily_kpis, & &1.key)
@@ -38,16 +38,16 @@ defmodule GmBmd.Daily do
   @run_scheduled [:recurring, :defaults_raised]
 
   @chart_positive [
-    %{key: :recurring, label: "Recurring dues", colour: "#8DA3B8"},
-    %{key: :new_sales, label: "New sales", colour: "#022A3A"},
-    %{key: :prior_recoveries, label: "Prior recoveries", colour: "#2F6E86"},
-    %{key: :upfront, label: "Upfronts", colour: "#F4CD00"},
-    %{key: :defaults_collected, label: "Defaults collected", colour: "#059669"}
+    %{key: :recurring, label: "Recurring dues", colour: "#C7D0D9"},
+    %{key: :new_sales, label: "New sales", colour: "#09293A"},
+    %{key: :prior_recoveries, label: "Prior recoveries", colour: "#5D8AA0"},
+    %{key: :upfront, label: "Upfronts", colour: "#F2CE0F"},
+    %{key: :defaults_collected, label: "Defaults collected", colour: "#8FB7C4"}
   ]
   @chart_negative [
-    %{key: :defaults_outstanding, label: "Defaults outstanding", colour: "#B91C1C"},
-    %{key: :cancel_within, label: "Cancellations in month", colour: "#E06666"},
-    %{key: :refunds, label: "Refunds", colour: "#F3A6A6"}
+    %{key: :defaults_outstanding, label: "Defaults outstanding", colour: "#C0392B"},
+    %{key: :cancel_within, label: "Cancellations in month", colour: "#9FA8B3"},
+    %{key: :refunds, label: "Refunds", colour: "#D5DBE2"}
   ]
 
   def daily_kpis, do: @daily_kpis
@@ -185,7 +185,7 @@ defmodule GmBmd.Daily do
 
   defp billing_due_on(month, club_id, day) do
     Bridge.billing_runs(month)
-    |> Enum.filter(fn r -> r.day == day and (club_id == Gm.all_clubs() or r.club_id == club_id) end)
+    |> Enum.filter(fn r -> r.day == day and Gm.in_scope?(club_id, r.club_id) end)
     |> Enum.map(& &1.members_due)
     |> Enum.sum()
   end

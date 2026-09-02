@@ -16,12 +16,12 @@ defmodule GmBmdWeb.Layouts do
         class="flex flex-wrap items-center gap-x-5 gap-y-1 bg-brand px-4 py-2 text-brand-content shadow-md"
         data-t3-chrome
       >
-        <.link navigate={~p"/"} class="flex items-center gap-2.5">
+        <.link navigate={~p"/"} class="flex shrink-0 items-center gap-2.5">
           <img src={~p"/images/gymnation-g.png"} alt="GymNation" class="h-7 w-auto" />
-          <span class="brand-wordmark text-[13px] leading-none">GymNation</span>
+          <span class="brand-wordmark hidden text-[13px] leading-none 2xl:inline">GymNation</span>
         </.link>
         <span class="hidden h-5 w-px bg-brand-content/25 sm:block"></span>
-        <span class="display-title text-[13px] leading-none">
+        <span class="display-title shrink-0 text-[13px] leading-none">
           General Manager <span class="text-brand-yellow">-</span> Business Management Dashboard
         </span>
         <nav class="flex flex-wrap items-center gap-1 text-[11px] font-bold uppercase tracking-wide">
@@ -31,7 +31,7 @@ defmodule GmBmdWeb.Layouts do
           <.nav_link navigate={~p"/revenue"} label={gettext("Revenue")} current_path={@current_path} />
           <.nav_link navigate={~p"/targets"} label={gettext("Targets")} current_path={@current_path} />
         </nav>
-        <span class="ms-auto flex items-center gap-3">
+        <span class="ms-auto flex shrink-0 items-center gap-2">
           <.feed_badge />
           <span
             id="theme-toggle"
@@ -51,8 +51,12 @@ defmodule GmBmdWeb.Layouts do
               {gettext("Auto")}
             </button>
           </span>
-          <span :if={@identity && @identity.email != ""} class="text-[11px] text-brand-content/70">
-            {@identity.email}
+          <span
+            :if={@identity && @identity.email != ""}
+            title={@identity.email}
+            class="grid size-7 place-items-center rounded-full bg-brand-content/15 text-[11px] font-extrabold uppercase text-brand-content"
+          >
+            {String.first(@identity.email)}
           </span>
         </span>
       </header>

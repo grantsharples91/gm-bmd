@@ -142,6 +142,46 @@ defmodule GmBmdWeb.CoreComponents do
     """
   end
 
+  @doc "Tiny inline trend line for a KPI tile: a list of numbers, oldest first."
+  attr :values, :list, required: true
+  attr :class, :string, default: "h-7 w-20"
+  attr :tone, :string, default: "text-muted"
+
+  def sparkline(assigns) do
+    values = Enum.map(assigns.values, &(&1 * 1.0))
+    n = length(values)
+    {lo, hi} = if n > 0, do: Enum.min_max(values), else: {0.0, 0.0}
+    span = if hi - lo == 0, do: 1.0, else: hi - lo
+    step = if n > 1, do: 100 / (n - 1), else: 0.0
+
+    points =
+      values
+      |> Enum.with_index()
+      |> Enum.map(fn {v, i} ->
+        x = Float.round(i * step, 1)
+        y = Float.round(26 - (v - lo) / span * 22, 1)
+        {x, y}
+      end)
+
+    line = Enum.map_join(points, " ", fn {x, y} -> "#{x},#{y}" end)
+    last = List.last(points)
+
+    assigns = assign(assigns, points: line, last: last, empty?: n < 2)
+
+    ~H"""
+    <svg
+      :if={!@empty?}
+      viewBox="0 0 100 28"
+      preserveAspectRatio="none"
+      class={["shrink-0 overflow-visible", @class, @tone]}
+      aria-hidden="true"
+    >
+      <polyline points={@points} fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+      <circle cx={elem(@last, 0)} cy={elem(@last, 1)} r="2.5" fill="currentColor" vector-effect="non-scaling-stroke" />
+    </svg>
+    """
+  end
+
   attr :label, :string, required: true
   attr :class, :string, default: nil
   slot :right
@@ -172,18 +212,61 @@ defmodule GmBmdWeb.CoreComponents do
   attr :current_month, :string, required: true
 
   def month_club_filters(assigns) do
+    ids = GmBmd.Gm.club_ids(assigns.club_id)
+    all? = assigns.club_id == GmBmd.Gm.all_clubs()
+
+    assigns =
+      assign(assigns,
+        selected_ids: if(all?, do: [], else: ids),
+        all?: all?,
+        scope_label: GmBmd.Gm.scope_name(assigns.club_id),
+        scope_title: if(all?, do: nil, else: Enum.join(GmBmd.Gm.scope_names(assigns.club_id), ", "))
+      )
+
     ~H"""
-    <form phx-change="filter" class="contents">
+    <form id="filters-form" phx-change="filter" class="contents">
       <select name="month" class="select-field" aria-label={gettext("Month")}>
         <option :for={m <- @months} value={m.key} selected={m.key == @month}>
           {m.label}{if m.key == @current_month, do: " (MTD)"}
         </option>
       </select>
-      <select name="club_id" class="select-field" aria-label={gettext("Club")}>
-        <option value="all" selected={@club_id == "all"}>{gettext("All clubs")}</option>
-        <option :for={c <- @clubs} value={c.id} selected={@club_id == c.id}>{c.name}</option>
-      </select>
     </form>
+    <details id="club-picker" phx-hook="ClubPicker" class="pop relative inline-block">
+      <summary
+        class="select-field inline-flex min-w-40 cursor-pointer select-none list-none items-center justify-between gap-2"
+        title={@scope_title}
+        aria-label={gettext("Clubs")}
+      >
+        <span class="truncate">{@scope_label}</span>
+        <.icon name="chevron-down" class="size-3 shrink-0 opacity-60" />
+      </summary>
+      <div class="absolute start-0 top-full z-30 mt-1 w-72 rounded-lg bg-base-100 p-2 shadow-lg ring-1 ring-base-300">
+        <input
+          type="search"
+          data-club-search
+          placeholder={gettext("Type to search clubs…")}
+          autocomplete="off"
+          class="mb-2 h-8 w-full rounded-md border border-base-300 bg-base-100 px-2 text-xs outline-none focus:border-primary"
+        />
+        <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-xs font-bold hover:bg-base-200">
+          <input type="checkbox" form="filters-form" name="clubs[]" value="all" data-club-all checked={@all?} class="accent-brand" />
+          {gettext("All clubs")}
+        </label>
+        <div class="my-1 border-t border-base-300"></div>
+        <ul data-club-list class="max-h-72 space-y-px overflow-y-auto">
+          <li :for={c <- @clubs} data-name={String.downcase(c.name)}>
+            <label class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-base-200">
+              <input type="checkbox" form="filters-form" name="clubs[]" value={c.id} checked={c.id in @selected_ids} class="accent-brand" />
+              <span class="truncate">{c.name}</span>
+            </label>
+          </li>
+        </ul>
+        <p data-club-empty hidden class="px-2 py-1 text-xs text-muted">{gettext("No clubs match")}</p>
+        <p class="mt-2 px-2 text-[10px] text-muted">
+          {gettext("Tick several clubs to see them combined.")}
+        </p>
+      </div>
+    </details>
     """
   end
 end

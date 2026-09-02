@@ -39,6 +39,81 @@ window.addEventListener("message", (e) => {
 });
 
 const Hooks = {
+  // Multi-club picker: type-to-filter the list, keep the panel open while the
+  // server re-renders after each tick, and make "All clubs" exclusive.
+  ClubPicker: {
+    mounted() {
+      this.wasOpen = false;
+      const search = this.el.querySelector("[data-club-search]");
+      const applyFilter = () => {
+        const q = (search.value || "").trim().toLowerCase();
+        let shown = 0;
+        this.el.querySelectorAll("[data-club-list] li").forEach((li) => {
+          const hit = !q || li.dataset.name.includes(q);
+          li.hidden = !hit;
+          if (hit) shown += 1;
+        });
+        const empty = this.el.querySelector("[data-club-empty]");
+        if (empty) empty.hidden = shown > 0;
+      };
+      search.addEventListener("input", applyFilter);
+      search.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          this.el.open = false;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const first = this.el.querySelector("[data-club-list] li:not([hidden]) input");
+          if (first) {
+            first.checked = !first.checked;
+            first.dispatchEvent(new Event("change", { bubbles: true }));
+            first.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        }
+      });
+      this.el.addEventListener("change", (e) => {
+        const box = e.target;
+        if (!(box instanceof HTMLInputElement) || box.type !== "checkbox") return;
+        const all = this.el.querySelector("[data-club-all]");
+        const clubs = this.el.querySelectorAll("[data-club-list] input");
+        if (box === all) {
+          if (all.checked) clubs.forEach((c) => (c.checked = false));
+          else all.checked = true;
+        } else {
+          all.checked = ![...clubs].some((c) => c.checked);
+        }
+      });
+      this.el.addEventListener("toggle", () => {
+        this.wasOpen = this.el.open;
+        if (this.el.open) {
+          search.value = "";
+          applyFilter();
+          setTimeout(() => search.focus(), 0);
+        }
+      });
+      this.onDocClick = (e) => {
+        if (this.el.open && !this.el.contains(e.target)) this.el.open = false;
+      };
+      document.addEventListener("click", this.onDocClick);
+      this.applyFilter = applyFilter;
+    },
+    beforeUpdate() {
+      this.wasOpen = this.el.open;
+      const search = this.el.querySelector("[data-club-search]");
+      this.query = search ? search.value : "";
+    },
+    updated() {
+      this.el.open = this.wasOpen;
+      const search = this.el.querySelector("[data-club-search]");
+      if (search && this.query) {
+        search.value = this.query;
+        this.applyFilter();
+      }
+    },
+    destroyed() {
+      document.removeEventListener("click", this.onDocClick);
+    },
+  },
   ThorBridge: {
     mounted() {
       reportNav();

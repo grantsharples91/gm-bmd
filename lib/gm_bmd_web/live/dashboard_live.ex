@@ -7,7 +7,7 @@ defmodule GmBmdWeb.DashboardLive do
   """
   use GmBmdWeb, :live_view
 
-  alias GmBmd.{Activity, Bridge, Format, Gm, Outturn, Revenue, Rules, Targets}
+  alias GmBmd.{Activity, Bridge, Daily, Format, Gm, Outturn, Revenue, Rules, Targets}
   alias GmBmdWeb.Charts
   alias GmBmdWeb.Layouts
 
@@ -23,15 +23,17 @@ defmodule GmBmdWeb.DashboardLive do
        club_id: Gm.all_clubs(),
        compare: :target,
        tab: "bridge",
+       detail_open: false,
        remaining: %{}
      )
      |> load()}
   end
 
   @impl true
-  def handle_event("filter", %{"month" => month, "club_id" => club_id}, socket) do
+  def handle_event("filter", params, socket) do
+    month = Map.get(params, "month", socket.assigns.month)
     month = if Enum.any?(Bridge.picker_months(), &(&1.key == month)), do: month, else: socket.assigns.month
-    club_id = validate_club(club_id)
+    club_id = GmBmdWeb.Scope.from_params(params)
     {:noreply, socket |> assign(month: month, club_id: club_id, remaining: %{}) |> load()}
   end
 
@@ -41,14 +43,18 @@ defmodule GmBmdWeb.DashboardLive do
   end
 
   def handle_event("tab", %{"tab" => tab}, socket) when tab in @tabs do
-    {:noreply, assign(socket, tab: tab)}
+    {:noreply, assign(socket, tab: tab, detail_open: true)}
+  end
+
+  def handle_event("toggle-detail", _params, socket) do
+    {:noreply, assign(socket, detail_open: !socket.assigns.detail_open)}
   end
 
   def handle_event("attention-open", params, socket) do
     club_id = validate_club(Map.get(params, "club") || socket.assigns.club_id)
     tab = Map.get(params, "tab", socket.assigns.tab)
     tab = if tab in @tabs, do: tab, else: socket.assigns.tab
-    {:noreply, socket |> assign(club_id: club_id, tab: tab, remaining: %{}) |> load()}
+    {:noreply, socket |> assign(club_id: club_id, tab: tab, detail_open: true, remaining: %{}) |> load()}
   end
 
   def handle_event("select-club", %{"club" => club_id}, socket) do
@@ -73,7 +79,7 @@ defmodule GmBmdWeb.DashboardLive do
   def handle_event("closing-set", %{"value" => raw} = params, socket) do
     %{month: month, club_id: club_id, identity: identity} = socket.assigns
 
-    with false <- club_id == Gm.all_clubs(),
+    with true <- Gm.single?(club_id),
          {value, _} <- Integer.parse(String.replace(raw, ~r/[^\d]/, "")) do
       note = params |> Map.get("note", "") |> String.trim()
       by = GmBmdWeb.Identity.display_name(identity)
@@ -91,7 +97,7 @@ defmodule GmBmdWeb.DashboardLive do
   def handle_event("closing-clear", _params, socket) do
     %{month: month, club_id: club_id} = socket.assigns
 
-    if club_id != Gm.all_clubs() do
+    if Gm.single?(club_id) do
       GmBmd.Closings.clear(club_id, month)
     end
 
@@ -102,9 +108,7 @@ defmodule GmBmdWeb.DashboardLive do
     {:noreply, socket |> assign(remaining: %{}) |> load()}
   end
 
-  defp validate_club(club_id) do
-    if Enum.any?(Bridge.clubs(), &(&1.id == club_id)), do: club_id, else: Gm.all_clubs()
-  end
+  defp validate_club(club_id), do: GmBmdWeb.Scope.from_ids(club_id)
 
   defp safe_row_key(key) do
     Enum.find(Bridge.bridge_row_keys(), &(to_string(&1) == key))
@@ -141,7 +145,7 @@ defmodule GmBmdWeb.DashboardLive do
     resolve_club = fn id -> Targets.resolve(month, id, month_label).values end
 
     outturn_cache =
-      [Gm.all_clubs() | Enum.map(Bridge.clubs(), & &1.id)]
+      Enum.uniq([Gm.all_clubs(), club_id | Enum.map(Bridge.clubs(), & &1.id)])
       |> Map.new(fn id ->
         v = resolve_club.(id)
         {id, Outturn.build(id, month, %{total_target: v.total, new_sales_target: v.new_sales})}
@@ -195,6 +199,7 @@ defmodule GmBmdWeb.DashboardLive do
     assign(socket,
       current_month: current,
       through_day: through_day,
+      sparks: spark_series(month, club_id, through_day),
       month_label: month_label,
       prev_month_label: (Bridge.month_meta(prev_month) || %{label: prev_month}).label,
       closing: Gm.closing_for(month, club_id),
@@ -411,7 +416,9 @@ defmodule GmBmdWeb.DashboardLive do
             value={num(@mtd_bridge.total)}
             navigate={~p"/outturn"}
             hint="Successful transactions so far this month — THOR's transaction count. The bridge explains the movement from last month's closing: new sales, upfronts and recoveries in; cancellations, defaults and refunds out."
-            delta={mtd_delta(@compare, @mtd_bridge, @prev_bridge, @full_bridge)}
+            delta={mtd_delta(@compare, @mtd_bridge, @prev_bridge, @full_bridge).label}
+            rag={mtd_delta(@compare, @mtd_bridge, @prev_bridge, @full_bridge).rag}
+            spark={@sparks.transactions}
           >
             opening {num(@mtd_bridge.opening)} ·
             {if @gm_forecast,
@@ -428,6 +435,8 @@ defmodule GmBmdWeb.DashboardLive do
             value={num(@totals.flows.new_sales)}
             hint="Brand-new memberships sold this month. For an upfront deal only the first payment counts here."
             delta={@delta.(@totals.flows.new_sales, @prev.flows.new_sales, @targets.new_sales_target, false).label}
+            rag={@delta.(@totals.flows.new_sales, @prev.flows.new_sales, @targets.new_sales_target, false).rag}
+            spark={@sparks.new_sales}
           >
             of {num(@targets.new_sales_target)} target ·
             <.run_rate_line actual={@totals.flows.new_sales} target={@targets.new_sales_target} month={@month} />
@@ -439,6 +448,8 @@ defmodule GmBmdWeb.DashboardLive do
             tone={outstanding_tone(@totals)}
             hint="Failed payments this month not yet collected. Outstanding = defaults raised minus recovered — the number to shrink."
             delta={@delta.(@totals.outstanding, @prev.outstanding, @resolved.values.defaults, true).label}
+            rag={@delta.(@totals.outstanding, @prev.outstanding, @resolved.values.defaults, true).rag}
+            spark={@sparks.outstanding}
           >
             of {num(@totals.defaults_raised)} defaulted · {num(@totals.defaults_recovered)} collected (<span class={[
               "font-bold",
@@ -459,6 +470,15 @@ defmodule GmBmdWeb.DashboardLive do
                 false
               ).label
             }
+            rag={
+              @delta.(
+                @totals.flows.prior_default_collections,
+                @prev.flows.prior_default_collections,
+                @resolved.values.prior_recoveries,
+                false
+              ).rag
+            }
+            spark={@sparks.prior_recoveries}
           >
             of {num(@resolved.values.prior_recoveries)} target ·
             <.run_rate_line
@@ -473,6 +493,8 @@ defmodule GmBmdWeb.DashboardLive do
             value={num(@totals.flows.upfront)}
             hint="The remaining paid-in-advance payments on an upfront contract — a 12-month upfront is 1 new sale plus 11 upfront transactions."
             delta={@delta.(@totals.flows.upfront, @prev.flows.upfront, @targets.upfront_target, false).label}
+            rag={@delta.(@totals.flows.upfront, @prev.flows.upfront, @targets.upfront_target, false).rag}
+            spark={@sparks.upfront}
           >
             of {num(@targets.upfront_target)} target ·
             <.run_rate_line actual={@totals.flows.upfront} target={@targets.upfront_target} month={@month} />
@@ -481,7 +503,24 @@ defmodule GmBmdWeb.DashboardLive do
 
         <.attention_panel attention={@attention} club_id={@club_id} />
 
-        <div :if={@yesterday || @next_run || @runs} class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <button
+          id="detail-toggle"
+          type="button"
+          phx-click="toggle-detail"
+          class="flex w-full items-center gap-2 rounded-xl bg-base-100 px-4 py-2.5 text-start ring-1 ring-base-300 hover:ring-primary"
+          aria-expanded={to_string(@detail_open)}
+        >
+          <.icon name="chevron-down" class={["size-3.5 transition-transform", @detail_open && "rotate-180"]} />
+          <span class="text-[12px] font-extrabold uppercase tracking-wide">{gettext("Detail")}</span>
+          <span class="text-[11px] text-muted">
+            · yesterday, billing runs, bridge, by club, MTD position, revenue, outturn, activity
+          </span>
+          <span class="ms-auto text-[10px] font-bold uppercase tracking-wide text-muted">
+            {if @detail_open, do: gettext("Hide"), else: gettext("Show")}
+          </span>
+        </button>
+
+        <div :if={@detail_open && (@yesterday || @next_run || @runs)} class="grid grid-cols-1 gap-3 lg:grid-cols-2">
           <div :if={@yesterday} class="panel p-3">
             <div class="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
               <.icon name="history" class="size-3.5" /> Yesterday ({@yesterday.label})
@@ -556,7 +595,7 @@ defmodule GmBmdWeb.DashboardLive do
           </div>
         </div>
 
-        <div class="flex min-h-[300px] flex-1 flex-col rounded-xl bg-base-100 ring-1 ring-base-300">
+        <div :if={@detail_open} class="flex min-h-[300px] flex-1 flex-col rounded-xl bg-base-100 ring-1 ring-base-300">
           <div class="flex items-center gap-1 overflow-x-auto border-b border-base-300 px-3 pt-2">
             <button
               :for={
@@ -602,7 +641,7 @@ defmodule GmBmdWeb.DashboardLive do
               prev_month_label={@prev_month_label}
             />
             <.club_table :if={@tab == "club"} rows={@club_rows} all={@all_row} selected={@club_id} />
-            <.position_strip :if={@tab == "position"} rows={if(@club_id == "all", do: @club_rows, else: Enum.filter(@club_rows, &(&1.id == @club_id)))} selected={@club_id} />
+            <.position_strip :if={@tab == "position"} rows={Enum.filter(@club_rows, &Gm.in_scope?(@club_id, &1.id))} selected={@club_id} />
             <.revenue_tab :if={@tab == "revenue"} revenue={@revenue} prev_revenue={@prev_revenue} totals={@totals} month={@month} />
             <.outturn_tab
               :if={@tab == "outturn"}
@@ -657,7 +696,59 @@ defmodule GmBmdWeb.DashboardLive do
     base = if compare == :last_month, do: prev_bridge.total, else: full_bridge.total
     p = if base != 0, do: (mtd.total - base) / base, else: 0.0
     tail = if compare == :last_month, do: "vs last month same day", else: "vs month-end outturn"
-    "#{Format.signed_pct(p)} #{tail}"
+
+    rag =
+      cond do
+        compare != :last_month -> :amber
+        abs(p) < 0.03 -> :amber
+        p > 0 -> :green
+        true -> :red
+      end
+
+    %{label: "#{Format.signed_pct(p)} #{tail}", rag: rag}
+  end
+
+  # Cumulative MTD by day for the five hero tiles' trend lines.
+  defp spark_series(month, club_id, through_day) do
+    rows = Gm.rows_for(month, club_id, through_day)
+    days = rows |> Enum.map(& &1.date.day) |> Enum.uniq() |> Enum.sort()
+
+    by_day =
+      Enum.group_by(rows, & &1.date.day)
+      |> Map.new(fn {day, list} ->
+        sum = fn f -> list |> Enum.map(f) |> Enum.sum() end
+
+        {day,
+         %{
+           transactions: sum.(fn r -> Map.get(r, :transactions) || Daily.net_of(daily_shape(r)) end),
+           new_sales: sum.(& &1.flows.new_sales),
+           outstanding: sum.(&(&1.defaults_raised - &1.defaults_recovered)),
+           prior_recoveries: sum.(& &1.flows.prior_default_collections),
+           upfront: sum.(& &1.flows.upfront)
+         }}
+      end)
+
+    keys = [:transactions, :new_sales, :outstanding, :prior_recoveries, :upfront]
+
+    Map.new(keys, fn key ->
+      {series, _} =
+        Enum.map_reduce(days, 0, fn day, acc ->
+          v = acc + Map.fetch!(by_day[day], key)
+          {v, v}
+        end)
+
+      {key, series}
+    end)
+  end
+
+  defp daily_shape(r) do
+    %{
+      recurring: r.recurring_collected,
+      new_sales: r.flows.new_sales,
+      prior_recoveries: r.flows.prior_default_collections + r.flows.agency_collections,
+      upfront: r.flows.upfront,
+      defaults_collected: r.defaults_recovered
+    }
   end
 
   defp need_net_per_day(actual, target, month) do
@@ -686,30 +777,58 @@ defmodule GmBmdWeb.DashboardLive do
   attr :value, :string, required: true
   attr :hint, :string, default: nil
   attr :delta, :string, default: nil
+  attr :rag, :atom, default: :amber
+  attr :spark, :list, default: []
   attr :navigate, :string, default: nil
   attr :tone, :string, default: nil
   slot :inner_block, required: true
   slot :drill
 
+  # One number, one comparator, one trend. The comparator carries the only
+  # colour on the tile; the working (targets, run-rate) sits in muted text
+  # underneath and the hint explains the definition on hover.
   defp hero_card(assigns) do
     ~H"""
-    <div class="relative flex min-h-[150px] min-w-0 flex-col rounded-xl bg-base-100 px-4 pb-3 pt-3 text-start ring-1 ring-base-300 transition hover:ring-2 hover:ring-primary">
+    <div class="group relative flex min-h-[150px] min-w-0 flex-col rounded-xl bg-base-100 px-4 pb-3 pt-3 text-start ring-1 ring-base-300 transition hover:ring-2 hover:ring-primary">
       <p class="flex items-center gap-1 text-[11px] font-extrabold uppercase leading-[13px] tracking-[0.12em] text-muted">
         <span>{@label}</span>
         <span :if={@hint} title={@hint} class="inline-flex"><.icon name="info" class="size-3 opacity-60" /></span>
       </p>
-      <p class={[
-        "display-title mt-2 whitespace-nowrap text-[32px] leading-none tabular-nums sm:text-[36px]",
-        @tone == "red" && "text-negative"
-      ]}>
-        <%= if @navigate do %>
-          <.link navigate={@navigate}>{@value}</.link>
-        <% else %>
-          {@value}
-        <% end %>
+      <div class="mt-2 flex items-end justify-between gap-2">
+        <p class={[
+          "display-title min-w-0 whitespace-nowrap text-[32px] leading-none tabular-nums sm:text-[36px]",
+          @tone == "red" && "text-negative"
+        ]}>
+          <%= if @navigate do %>
+            <.link navigate={@navigate}>{@value}</.link>
+          <% else %>
+            {@value}
+          <% end %>
+        </p>
+        <.sparkline
+          values={@spark}
+          class="mb-1 h-7 w-20"
+          tone={
+            cond do
+              @rag == :green -> "text-positive"
+              @rag == :red -> "text-negative"
+              true -> "text-muted/70"
+            end
+          }
+        />
+      </div>
+      <p :if={@delta} class="mt-2 text-[11px] font-bold leading-[14px] tabular-nums">
+        <span class={[
+          @rag == :green && "text-positive",
+          @rag == :red && "text-negative",
+          @rag == :amber && "text-base-content"
+        ]}>
+          {@delta}
+        </span>
       </p>
-      <p :if={@delta} class="mt-1.5 text-[10px] leading-[13px] text-muted">{@delta}</p>
-      <p class="mt-1 pb-1 text-[11px] leading-[14px] text-muted">{render_slot(@inner_block)}</p>
+      <p class="mt-1 pb-1 text-[10px] leading-[14px] text-muted line-clamp-2 group-hover:line-clamp-none">
+        {render_slot(@inner_block)}
+      </p>
       <details :if={@drill != []} class="pop mt-auto">
         <summary class="cursor-pointer text-[10px] font-bold uppercase tracking-wide text-muted">
           Drill down
@@ -749,7 +868,7 @@ defmodule GmBmdWeb.DashboardLive do
       <div class="flex items-center gap-2 border-b border-base-300 px-4 py-2">
         <h2 class="text-[12px] font-extrabold uppercase tracking-wide">{gettext("Needs attention")}</h2>
         <span class="text-[11px] text-muted">
-          · {if @club_id == "all", do: "All clubs", else: Bridge.club_name(@club_id)}
+          · {Gm.scope_name(@club_id)}
         </span>
         <span class="text-[11px] text-muted">
           {length(@attention)} item{if length(@attention) == 1, do: "", else: "s"}
@@ -868,7 +987,7 @@ defmodule GmBmdWeb.DashboardLive do
   # corrected by hand; the all-clubs view only reports.
   defp closing_block(assigns) do
     override = List.first(assigns.closing.overrides)
-    assigns = assign(assigns, override: override, single: assigns.club_id != Gm.all_clubs())
+    assigns = assign(assigns, override: override, single: Gm.single?(assigns.club_id))
 
     ~H"""
     <div class="mt-3 rounded-lg border border-base-300 bg-base-200/40 p-3 print:hidden" id="closing-block">

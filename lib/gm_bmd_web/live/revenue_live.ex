@@ -18,16 +18,18 @@ defmodule GmBmdWeb.RevenueLive do
   end
 
   @impl true
-  def handle_event("filter", %{"month" => month, "club_id" => club_id}, socket) do
+  def handle_event("filter", params, socket) do
+    month = Map.get(params, "month", socket.assigns.month)
+
     month =
       if Enum.any?(Bridge.picker_months(), &(&1.key == month)), do: month, else: socket.assigns.month
 
-    club_id = if Enum.any?(Bridge.clubs(), &(&1.id == club_id)), do: club_id, else: Gm.all_clubs()
+    club_id = GmBmdWeb.Scope.from_params(params)
     {:noreply, socket |> assign(month: month, club_id: club_id) |> load()}
   end
 
   def handle_event("select-club", %{"club" => club_id}, socket) do
-    club_id = if Enum.any?(Bridge.clubs(), &(&1.id == club_id)), do: club_id, else: Gm.all_clubs()
+    club_id = GmBmdWeb.Scope.from_ids(club_id)
     {:noreply, socket |> assign(club_id: club_id) |> load()}
   end
 

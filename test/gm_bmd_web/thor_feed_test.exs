@@ -43,6 +43,7 @@ defmodule GmBmdWeb.ThorFeedTest do
 
   test "MTD transactions is THOR's count and the bridge reconciles to it", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
+    _ = view |> element("#detail-toggle") |> render_click()
 
     html =
       view
@@ -85,6 +86,7 @@ defmodule GmBmdWeb.ThorFeedTest do
     assert_in_delta obs.collect_rate_pct, 993 / 1309 * 100, 0.01
 
     {:ok, view, _html} = live(conn, ~p"/")
+    _ = view |> element("#detail-toggle") |> render_click()
     html = view |> element("form[phx-change=filter]") |> render_change(%{"month" => "2026-08", "club_id" => "all"})
     assert html =~ "Billing run forecast"
     assert html =~ "Runs attempted"
@@ -121,6 +123,7 @@ defmodule GmBmdWeb.ThorFeedTest do
 
   test "dashboard narrows to a club that only exists in the feed", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
+    _ = view |> element("#detail-toggle") |> render_click()
     club = Enum.find(Bridge.clubs(), &(&1.name == "Al Faisaliyyah Ladies"))
 
     html =
@@ -133,6 +136,7 @@ defmodule GmBmdWeb.ThorFeedTest do
 
   test "a manager sets the month-end closing from the bridge tab", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/")
+    _ = view |> element("#detail-toggle") |> render_click()
 
     html =
       view

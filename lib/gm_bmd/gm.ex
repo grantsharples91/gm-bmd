@@ -17,14 +17,48 @@ defmodule GmBmd.Gm do
   def retry_rate, do: @retry_rate
   def avg_txn_aed, do: @avg_txn_aed
 
+  @doc """
+  A selection is "all", one club id, or several club ids joined with commas
+  ("club-a,club-b"). Every scope-aware function takes the selection string
+  and expands it here, so a multi-club pick aggregates exactly like "all".
+  """
   def club_ids(@all_clubs), do: Enum.map(Bridge.clubs(), & &1.id)
-  def club_ids(club_id), do: [club_id]
+  def club_ids(club_id) when is_binary(club_id), do: String.split(club_id, ",", trim: true)
+
+  @doc "Build a selection string from a list of club ids; empty means all."
+  def selection(ids) when is_list(ids) do
+    case Enum.uniq(ids) do
+      [] -> @all_clubs
+      list -> Enum.join(list, ",")
+    end
+  end
+
+  def multi?(club_id), do: club_id != @all_clubs and String.contains?(club_id, ",")
+  def single?(club_id), do: club_id != @all_clubs and not String.contains?(club_id, ",")
+
+  @doc "Is a row for `id` inside the selection?"
+  def in_scope?(@all_clubs, _id), do: true
+  def in_scope?(club_id, id) when club_id == id, do: true
+  def in_scope?(club_id, id), do: String.contains?(club_id, ",") and id in club_ids(club_id)
+
+  @doc "Human label for a selection: All clubs, the club's name, or \"3 clubs\"."
+  def scope_name(@all_clubs), do: "All clubs"
+
+  def scope_name(club_id) do
+    case club_ids(club_id) do
+      [id] -> Bridge.club_name(id)
+      ids -> "#{length(ids)} clubs"
+    end
+  end
+
+  @doc "Names in a multi-club selection, for a tooltip."
+  def scope_names(club_id), do: club_id |> club_ids() |> Enum.map(&Bridge.club_name/1)
 
   @doc "Rows for a month, optionally one club, optionally only up to a day (MTD)."
   def rows_for(month, club_id, through_day \\ nil) do
     Bridge.day_rows(month)
     |> Enum.filter(fn row ->
-      (club_id == @all_clubs or row.club_id == club_id) and
+      in_scope?(club_id, row.club_id) and
         (through_day == nil or row.date.day <= through_day)
     end)
   end
@@ -230,10 +264,7 @@ defmodule GmBmd.Gm do
   def finance_targets_for(club_id) do
     targets = Bridge.finance_targets()
 
-    list =
-      if club_id == @all_clubs,
-        do: targets,
-        else: Enum.filter(targets, &(&1.club_id == club_id))
+    list = Enum.filter(targets, &in_scope?(club_id, &1.club_id))
 
     %{
       new_sales_target: list |> Enum.map(& &1.new_sales_target) |> Enum.sum(),
@@ -390,7 +421,7 @@ defmodule GmBmd.Gm do
     scheduled_left =
       Bridge.billing_runs(month)
       |> Enum.filter(fn r ->
-        r.day > days_elapsed and (club_id == @all_clubs or r.club_id == club_id)
+        r.day > days_elapsed and in_scope?(club_id, r.club_id)
       end)
       |> Enum.map(& &1.members_due)
       |> Enum.sum()

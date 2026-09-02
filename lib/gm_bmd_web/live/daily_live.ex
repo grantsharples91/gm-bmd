@@ -19,11 +19,13 @@ defmodule GmBmdWeb.DailyLive do
   end
 
   @impl true
-  def handle_event("filter", %{"month" => month, "club_id" => club_id}, socket) do
+  def handle_event("filter", params, socket) do
+    month = Map.get(params, "month", socket.assigns.month)
+
     month =
       if Enum.any?(Bridge.picker_months(), &(&1.key == month)), do: month, else: socket.assigns.month
 
-    club_id = if Enum.any?(Bridge.clubs(), &(&1.id == club_id)), do: club_id, else: Gm.all_clubs()
+    club_id = GmBmdWeb.Scope.from_params(params)
     {:noreply, socket |> assign(month: month, club_id: club_id) |> load()}
   end
 
@@ -78,7 +80,7 @@ defmodule GmBmdWeb.DailyLive do
             current_month={@current_month}
           />
           <span class="text-[11px] opacity-70">
-            {if @club_id == "all", do: "All clubs", else: Bridge.club_name(@club_id)}
+            {Gm.scope_name(@club_id)}
             · day {@model.days_elapsed} of {@model.days_total}
           </span>
           <div class="ms-auto flex items-center gap-2">

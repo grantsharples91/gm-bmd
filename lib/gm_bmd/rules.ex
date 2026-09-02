@@ -51,7 +51,7 @@ defmodule GmBmd.Rules do
   # -------------------------------------------------------------- attention
 
   defp name_of(club_id) do
-    if club_id == Gm.all_clubs(), do: "All clubs", else: Bridge.club_name(club_id)
+    Gm.scope_name(club_id)
   end
 
   defp items_for_selection(month, club_id, targets, outturn_of) do
@@ -371,7 +371,7 @@ defmodule GmBmd.Rules do
           runs =
             Bridge.billing_runs(month)
             |> Enum.filter(fn r ->
-              r.day == day and (club_id == Gm.all_clubs() or r.club_id == club_id)
+              r.day == day and Gm.in_scope?(club_id, r.club_id)
             end)
 
           if runs == [] do

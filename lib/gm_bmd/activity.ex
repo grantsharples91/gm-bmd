@@ -40,7 +40,7 @@ defmodule GmBmd.Activity do
   @doc "Money events for today, newest first, optionally scoped to one club."
   def todays_events(club_id \\ "all") do
     all_events()
-    |> Enum.filter(&(club_id == "all" or &1.club_id == club_id))
+    |> Enum.filter(&GmBmd.Gm.in_scope?(club_id, &1.club_id))
   end
 
   def collected_today(events) do

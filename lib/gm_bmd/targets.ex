@@ -158,11 +158,11 @@ defmodule GmBmd.Targets do
 
   @doc "State for a selection: one club's row, or the rolled-up month state for \"all\"."
   def month_state(month, club_id) do
-    if club_id == Gm.all_clubs() do
-      states = Enum.map(Bridge.clubs(), &club_state(month, &1.id))
-      rollup(states)
-    else
+    if Gm.single?(club_id) do
       club_state(month, club_id)
+    else
+      states = Enum.map(Gm.club_ids(club_id), &club_state(month, &1))
+      rollup(states)
     end
   end
 
