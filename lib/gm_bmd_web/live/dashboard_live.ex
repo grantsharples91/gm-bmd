@@ -10,6 +10,7 @@ defmodule GmBmdWeb.DashboardLive do
   alias GmBmd.{Activity, Bridge, Daily, Format, Gm, Outturn, Revenue, Rules, Targets}
   alias GmBmdWeb.Charts
   alias GmBmdWeb.Layouts
+  alias Phoenix.LiveView.JS
 
   @tabs ~w(bridge club position revenue outturn activity)
 
@@ -934,8 +935,7 @@ defmodule GmBmdWeb.DashboardLive do
         </span>
         <button
           type="button"
-          phx-click="tab"
-          phx-value-tab="bridge"
+          phx-click={JS.push("tab", value: %{tab: "bridge"}) |> JS.dispatch("gmbmd:reveal", to: "#detail-toggle")}
           class="ms-auto text-[10px] font-bold uppercase tracking-wide text-muted underline-offset-2 hover:underline"
         >
           {gettext("Full bridge table →")}
@@ -982,9 +982,10 @@ defmodule GmBmdWeb.DashboardLive do
         <li :for={item <- @attention}>
           <button
             type="button"
-            phx-click="attention-open"
-            phx-value-club={item.club_id}
-            phx-value-tab={attention_tab(item.tab)}
+            phx-click={
+              JS.push("attention-open", value: %{club: item.club_id, tab: attention_tab(item.tab)})
+              |> JS.dispatch("gmbmd:reveal", to: "#detail-toggle")
+            }
             class="flex w-full items-start gap-2.5 px-4 py-2 text-start text-[12px] leading-[17px] hover:bg-base-200/70"
           >
             <span class={[

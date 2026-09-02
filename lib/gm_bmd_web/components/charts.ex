@@ -154,7 +154,7 @@ defmodule GmBmdWeb.Charts do
           <span class="inline-block h-[2px] w-3 bg-base-content"></span> Net movement
         </span>
         <span class="inline-flex items-center gap-1.5">
-          <span class="size-2 rounded-sm bg-base-300 opacity-50"></span> Forecast (faded)
+          <span class="size-2 rounded-sm bg-base-300 opacity-50"></span> Expected (faded)
         </span>
         <span class="ms-auto">Hover a day for its make-up</span>
       </div>
@@ -188,7 +188,7 @@ defmodule GmBmdWeb.Charts do
         {cond do
           @row.today -> "Today · actual"
           @row.past -> "Actual"
-          true -> "Forecast"
+          true -> "Expected"
         end}
       </span>
     </div>

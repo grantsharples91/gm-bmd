@@ -38,6 +38,11 @@ window.addEventListener("message", (e) => {
   }
 });
 
+// Scroll the detail section into view after a click that opens it.
+window.addEventListener("gmbmd:reveal", (e) => {
+  setTimeout(() => e.target.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+});
+
 const Hooks = {
   // Multi-club picker: type-to-filter the list, keep the panel open while the
   // server re-renders after each tick, and make "All clubs" exclusive.

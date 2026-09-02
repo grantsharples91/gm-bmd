@@ -21,7 +21,7 @@ defmodule GmBmd.Daily do
   alias GmBmd.Gm
 
   @daily_kpis [
-    %{key: :recurring, label: "Recurring dues", short: "Recurring", sign: 1, colour: "#C7D0D9"},
+    %{key: :recurring, label: "Recurring collected — successful recurring billings", short: "Recurring collected", sign: 1, colour: "#C7D0D9"},
     %{key: :new_sales, label: "New sales", short: "New sales", sign: 1, colour: "#09293A"},
     %{key: :prior_recoveries, label: "Prior recoveries", short: "Prior rec.", sign: 1, colour: "#5D8AA0"},
     %{key: :upfront, label: "Upfronts", short: "Upfronts", sign: 1, colour: "#F2CE0F"},
@@ -38,7 +38,7 @@ defmodule GmBmd.Daily do
   @run_scheduled [:recurring, :defaults_raised]
 
   @chart_positive [
-    %{key: :recurring, label: "Recurring dues", colour: "#C7D0D9"},
+    %{key: :recurring, label: "Recurring collected", colour: "#C7D0D9"},
     %{key: :new_sales, label: "New sales", colour: "#09293A"},
     %{key: :prior_recoveries, label: "Prior recoveries", colour: "#5D8AA0"},
     %{key: :upfront, label: "Upfronts", colour: "#F2CE0F"},
@@ -433,8 +433,8 @@ defmodule GmBmd.Daily do
   @doc "TSV of the day table for the copy button."
   def tsv(model) do
     head =
-      ["Date", "Day", "Forecast total", "Actual total", "Variance"] ++
-        Enum.map(@daily_kpis, & &1.label) ++ ["Net", "Running total"]
+      ["Date", "Day", "Billing run (members due)", "Expected total", "Actual total", "Variance"] ++
+        Enum.map(@daily_kpis, & &1.short) ++ ["Net", "Running total"]
 
     lines =
       Enum.map(model.rows, fn r ->
@@ -443,6 +443,7 @@ defmodule GmBmd.Daily do
         ([
            Date.to_iso8601(r.date),
            r.dow,
+           r.billing_due,
            r.forecast.net,
            if(r.actual, do: r.actual.net, else: ""),
            if(r.actual, do: r.actual.net - r.forecast.net, else: "")

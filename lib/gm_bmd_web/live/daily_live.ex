@@ -1,8 +1,8 @@
 defmodule GmBmdWeb.DailyLive do
   @moduledoc """
-  Daily transactions — forecast vs actual total transactions for every day,
+  Daily transactions — expected vs actual total transactions for every day,
   how each KPI contributed, and what the days still to come need to deliver.
-  Forecast close always equals the outturn engine's close.
+  Expected close always equals the outturn engine's close.
   """
   use GmBmdWeb, :live_view
 
@@ -98,11 +98,11 @@ defmodule GmBmdWeb.DailyLive do
         </div>
 
         <p :if={@resolved.source != :approved} class="rounded-md bg-warning/15 px-3 py-2 text-[11px] font-semibold">
-          {@resolved.note} Forecasts use last month's daily shape scaled to last month's total.
+          {@resolved.note} Expected figures use last month's daily shape scaled to last month's total.
         </p>
 
         <div class="grid gap-2 sm:grid-cols-3">
-          <.gm_tile label="MTD actual vs MTD forecast">
+          <.gm_tile label="MTD actual vs expected">
             <:right>
               <.rag_chip rag={@variance_rag}>{signed(@model.variance)}</.rag_chip>
             </:right>
@@ -117,7 +117,7 @@ defmodule GmBmdWeb.DailyLive do
           <.gm_tile label="Days left">
             <p class="display-title text-xl leading-none tabular-nums">{@model.days_left}</p>
             <p class="mt-0.5 text-[10px] text-muted">
-              of {@model.days_total} · forecast close {num(@model.month_forecast_close)}
+              of {@model.days_total} · expected close {num(@model.month_forecast_close)}
             </p>
           </.gm_tile>
           <.gm_tile label="To hit month-end need">
@@ -130,14 +130,14 @@ defmodule GmBmdWeb.DailyLive do
 
         <div class="rounded-lg bg-base-100 p-3 ring-1 ring-base-300">
           <p class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-            Daily transactions — {@model.month_label} · each bar is that day's successful transactions by type; failed attempts, cancellations and refunds below the axis; forecast faded
+            Daily transactions — {@model.month_label} · each bar is that day's successful transactions by type; failed attempts, cancellations and refunds below the axis; expected faded
           </p>
           <Charts.daily_chart model={@model} />
         </div>
 
         <div :if={@model.reforecast != []} class="rounded-lg bg-base-100 p-3 ring-1 ring-base-300">
           <p class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-            Re-forecast — yesterday's actual moved the remaining daily requirement
+            Remaining need — updated after yesterday's actual
           </p>
           <ul class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
             <li :for={r <- @model.reforecast} class="font-semibold">
@@ -149,7 +149,7 @@ defmodule GmBmdWeb.DailyLive do
 
         <div class="rounded-lg bg-base-100 p-3 ring-1 ring-base-300">
           <p class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-            Day table — past days show actuals with the forecast in grey underneath; future days are forecast only
+            Day table — Billing run is the members due to bill that day (THOR schedule); Expected is the transactions we expect that day, all types. Past days show actuals with expected in grey underneath; future days are expected only
           </p>
           <div class="mt-2 overflow-x-auto">
             <table class="w-full min-w-[1060px] border-collapse text-xs">
@@ -157,7 +157,8 @@ defmodule GmBmdWeb.DailyLive do
                 <tr class="text-[9px] uppercase tracking-wide text-muted">
                   <th class="px-1 py-1 text-start">Date</th>
                   <th class="px-1 py-1 text-start">Day</th>
-                  <th class="px-1 py-1 text-end">Forecast</th>
+                  <th class="px-1 py-1 text-end" title="Members due to bill that day — THOR's billing schedule">Billing run</th>
+                  <th class="px-1 py-1 text-end" title="Transactions we expect that day, all types">Expected</th>
                   <th class="px-1 py-1 text-end">Actual</th>
                   <th class="px-1 py-1 text-end">Var</th>
                   <th :for={k <- Daily.daily_kpis()} class="px-1 py-1 text-end" title={k.label}>{k.short}</th>
@@ -168,7 +169,7 @@ defmodule GmBmdWeb.DailyLive do
               <tbody>
                 <.day_row :for={r <- @model.rows} row={r} />
                 <tr class="border-t-2 border-base-content text-[11px] font-bold">
-                  <td class="px-1 py-1.5" colspan="2">MTD actual</td>
+                  <td class="px-1 py-1.5" colspan="3">MTD actual</td>
                   <td class="px-1 py-1.5 text-end tabular-nums text-muted">{signed(@model.mtd_forecast_total)}</td>
                   <td class="px-1 py-1.5 text-end tabular-nums">{signed(@model.mtd_actual_total)}</td>
                   <td class={["px-1 py-1.5 text-end tabular-nums", @model.variance < 0 && "text-negative"]}>
@@ -181,7 +182,7 @@ defmodule GmBmdWeb.DailyLive do
                   <td class="px-1 py-1.5 text-end tabular-nums">{num(@model.closing_actual)}</td>
                 </tr>
                 <tr class="border-t border-base-300 text-[11px] text-muted">
-                  <td class="px-1 py-1.5" colspan="5">Remaining forecast · {@model.days_left} days</td>
+                  <td class="px-1 py-1.5" colspan="6">Remaining expected · {@model.days_left} days</td>
                   <td :for={c <- kpi_columns(@model)} class="px-1 py-1.5 text-end tabular-nums">
                     {num(c.remaining_forecast)}
                   </td>
@@ -189,7 +190,7 @@ defmodule GmBmdWeb.DailyLive do
                   <td class="px-1 py-1.5 text-end tabular-nums">{num(@model.month_forecast_close)}</td>
                 </tr>
                 <tr class="border-t border-base-300 text-[11px] font-bold">
-                  <td class="px-1 py-1.5" colspan="5">Month total vs target</td>
+                  <td class="px-1 py-1.5" colspan="6">Month total vs target</td>
                   <td :for={c <- kpi_columns(@model)} class="px-1 py-1.5 text-end tabular-nums">
                     {num(c.month_total)}
                     <span class="block text-[9px] font-normal text-muted">
@@ -234,12 +235,10 @@ defmodule GmBmdWeb.DailyLive do
     ]}>
       <td class="px-1 py-1.5 tabular-nums">
         {@row.day}
-        <span class="ms-1 whitespace-nowrap text-[9px] font-normal not-italic text-muted">
-          {num(@row.billing_due)} due
-        </span>
         <span :if={@row.today} class="ms-1 text-[9px] uppercase tracking-wide">Today</span>
       </td>
       <td class="px-1 py-1.5">{@row.dow}</td>
+      <td class="px-1 py-1.5 text-end tabular-nums">{num(@row.billing_due)}</td>
       <td class="px-1 py-1.5 text-end tabular-nums text-muted">{signed(@row.forecast.net)}</td>
       <td class="px-1 py-1.5 text-end tabular-nums">{if @row.actual, do: signed(@row.actual.net), else: "—"}</td>
       <td class={["px-1 py-1.5 text-end tabular-nums", @variance && @variance < 0 && "text-negative"]}>
@@ -263,14 +262,14 @@ defmodule GmBmdWeb.DailyLive do
 
   defp forecast_method(assigns) do
     ~H"""
-    <.popover label={gettext("How this is forecast")}>
-      <p class="display-title mb-2 text-xs">Forecast method</p>
+    <.popover label={gettext("How expected is worked out")}>
+      <p class="display-title mb-2 text-xs">How the expected figures are built</p>
       <ul class="list-disc space-y-1.5 ps-4 text-muted">
         <li>
           <strong class="text-base-content">Billing schedule.</strong>
-          Recurring dues and defaults raised follow the billing runs: each day's share is the members due to
-          run that day (the "due" figure on the row), so the forecast lands on run days and is zero on days
-          with nothing due.
+          Recurring collected and defaults raised follow the billing runs: each day's share is the Billing run
+          figure on the row (members due to bill that day), so expected recurring lands on run days and is
+          zero on days with no run.
         </li>
         <li>
           <strong class="text-base-content">Remaining days.</strong>
@@ -280,8 +279,8 @@ defmodule GmBmdWeb.DailyLive do
         </li>
         <li>
           <strong class="text-base-content">Past days.</strong>
-          The forecast shown is the original plan — the month-end target spread over every day with the same
-          shape (billing schedule for run-driven KPIs, day-of-week weight for sales-driven).
+          The expected figure shown is the original plan — the month-end target spread over every day with
+          the same shape (billing schedule for run-driven KPIs, day-of-week weight for sales-driven).
         </li>
         <li>
           <strong class="text-base-content">Seasonality.</strong>
