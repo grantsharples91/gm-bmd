@@ -50,7 +50,7 @@ defmodule GmBmdWeb.LiveScreensTest do
   test "targets grid seeds, edits and approves", %{conn: conn} do
     {:ok, view, html} = live(conn, ~p"/targets")
     assert html =~ "Monthly targets"
-    assert html =~ "Status by club"
+    assert html =~ "Targets locked in"
 
     club = hd(Bridge.clubs())
     html = view |> element("button[phx-value-club='" <> club.id <> "']") |> render_click()
