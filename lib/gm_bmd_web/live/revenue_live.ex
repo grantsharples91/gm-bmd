@@ -192,7 +192,7 @@ defmodule GmBmdWeb.RevenueLive do
                 phx-value-club={c.club_id}
                 class={[
                   "cursor-pointer border-b border-base-300/60 last:border-0 hover:bg-base-200/40",
-                  @club_id == c.club_id && "bg-navy-soft"
+                  @club_id != Gm.all_clubs() and Gm.in_scope?(@club_id, c.club_id) && "bg-navy-soft"
                 ]}
               >
                 <td class="px-4 py-2.5 font-bold">{c.name}</td>

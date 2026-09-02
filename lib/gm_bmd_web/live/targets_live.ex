@@ -270,28 +270,7 @@ defmodule GmBmdWeb.TargetsLive do
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 rounded-lg bg-base-100 px-3 py-2 ring-1 ring-base-300">
-          <span class="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-            Status by club · {@meta.label}
-          </span>
-          <button
-            :for={c <- Bridge.clubs()}
-            phx-click="pick-club"
-            phx-value-club={c.id}
-            class={[
-              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 transition",
-              approved?(@club_states[c.id]) && "bg-positive-soft text-positive ring-positive/40",
-              !approved?(@club_states[c.id]) && "bg-base-200 ring-base-300",
-              c.id == @club_id && "ring-2 ring-steel"
-            ]}
-          >
-            <.icon :if={approved?(@club_states[c.id])} name="lock" class="size-2.5" />
-            {c.name}
-            <span class="font-extrabold uppercase tracking-wide">
-              · {if approved?(@club_states[c.id]), do: "Approved", else: "Draft"}
-            </span>
-          </button>
-        </div>
+        <.status_board clubs={Bridge.clubs()} club_states={@club_states} club_id={@club_id} month_label={@meta.label} />
 
         <div
           :if={!@selected}
@@ -300,8 +279,8 @@ defmodule GmBmdWeb.TargetsLive do
           <.icon name="target" class="size-6 text-muted" />
           <p class="display-title text-base">Select a club to set its targets</p>
           <p class="max-w-md text-xs text-muted">
-            Targets are set one club at a time by that site's GM. Pick a club above — or click one of the
-            status chips — to enter its five T2 numbers for {@meta.label}.
+            Targets are set one club at a time by that site's GM. Pick a club above — or click a club in the
+            list — to enter its five T2 numbers for {@meta.label}.
           </p>
         </div>
 
@@ -464,6 +443,89 @@ defmodule GmBmdWeb.TargetsLive do
 
   defp approved?(nil), do: false
   defp approved?(state), do: state.status == "approved"
+
+  # Which clubs have locked their targets: a count with a progress bar, then
+  # a compact list — clubs still in draft first, since those need chasing —
+  # with the selected club marked by a yellow edge.
+  attr :clubs, :list, required: true
+  attr :club_states, :map, required: true
+  attr :club_id, :string, required: true
+  attr :month_label, :string, required: true
+
+  defp status_board(assigns) do
+    rows =
+      assigns.clubs
+      |> Enum.map(fn c ->
+        state = assigns.club_states[c.id]
+        approved = approved?(state)
+
+        detail =
+          cond do
+            approved and state.approved_at ->
+              "#{state.approved_by || "manager"} · #{Targets.stamp_label(state.approved_at)}"
+
+            approved ->
+              state.approved_by || "approved"
+
+            state && state.unlock_reason ->
+              "reopened · #{state.unlock_reason}"
+
+            state ->
+              "draft"
+
+            true ->
+              "not started"
+          end
+
+        %{id: c.id, name: c.name, approved: approved, detail: detail}
+      end)
+      |> Enum.sort_by(&{&1.approved, &1.name})
+
+    done = Enum.count(rows, & &1.approved)
+    total = length(rows)
+    pct = if total > 0, do: round(done / total * 100), else: 0
+
+    assigns = assign(assigns, rows: rows, done: done, total: total, pct: pct)
+
+    ~H"""
+    <section class="rounded-xl bg-base-100 px-4 py-3 ring-1 ring-base-300">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <h2 class="text-[12px] font-extrabold uppercase tracking-wide">
+          {gettext("Targets locked in")} · {@month_label}
+        </h2>
+        <span class="text-sm font-extrabold tabular-nums">
+          {@done} <span class="text-muted">of {@total} clubs</span>
+        </span>
+        <div class="h-1.5 w-40 overflow-hidden rounded-full bg-base-200">
+          <div class="h-full rounded-full bg-positive" style={"width: #{@pct}%"}></div>
+        </div>
+        <span :if={@done < @total} class="text-[11px] text-muted">
+          {@total - @done} still to approve — listed first
+        </span>
+      </div>
+      <div class="mt-3 grid gap-x-6 gap-y-px sm:grid-cols-2 lg:grid-cols-3">
+        <button
+          :for={r <- @rows}
+          type="button"
+          phx-click="pick-club"
+          phx-value-club={r.id}
+          class={[
+            "flex min-w-0 items-center gap-2 rounded-md border-s-2 px-2 py-1 text-start text-[11px] hover:bg-base-200",
+            r.id == @club_id && "border-brand-yellow bg-base-200 font-bold",
+            r.id != @club_id && "border-transparent"
+          ]}
+        >
+          <span class={["size-1.5 shrink-0 rounded-full", r.approved && "bg-positive", !r.approved && "bg-base-300"]}></span>
+          <span class="min-w-0 flex-1 truncate">{r.name}</span>
+          <span class={["shrink-0 truncate text-[10px]", r.approved && "text-positive", !r.approved && "text-muted"]}>
+            {r.detail}
+          </span>
+          <.icon :if={r.approved} name="lock" class="size-2.5 shrink-0 text-positive" />
+        </button>
+      </div>
+    </section>
+    """
+  end
 
   defp history_state_label(nil), do: "no targets set"
 

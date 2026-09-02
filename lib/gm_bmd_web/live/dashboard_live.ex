@@ -501,6 +501,8 @@ defmodule GmBmdWeb.DashboardLive do
           </.hero_card>
         </div>
 
+        <.bridge_waterfall bridge={@mtd_bridge} full={@full_bridge} month_label={@month_label} club_id={@club_id} />
+
         <.attention_panel attention={@attention} club_id={@club_id} />
 
         <button
@@ -861,6 +863,105 @@ defmodule GmBmdWeb.DashboardLive do
 
   attr :attention, :list, required: true
   attr :club_id, :string, required: true
+
+  # The membership bridge as a waterfall: opening on the left, each movement
+  # as a floating step, total transactions on the right. Zero rows are left
+  # out so the eye lands on what moved. Clicking through opens the full
+  # bridge table in the detail section.
+  attr :bridge, :map, required: true
+  attr :full, :map, required: true
+  attr :month_label, :string, required: true
+  attr :club_id, :string, required: true
+
+  defp bridge_waterfall(assigns) do
+    b = assigns.bridge
+
+    steps =
+      Enum.reject(b.lines, fn l -> l.value == 0 and not Map.get(l, :reconcile, false) end)
+
+    levels = [b.opening, b.total | Enum.map(steps, & &1.running)]
+    lo = Enum.min(levels)
+    hi = Enum.max(levels)
+    pad = max((hi - lo) * 0.12, 1)
+    lo = lo - pad
+    hi = hi + pad
+    span = max(hi - lo, 1)
+    pct = fn v -> Float.round((v - lo) / span * 100, 2) end
+
+    {step_cols, _} =
+      Enum.map_reduce(steps, b.opening, fn l, before ->
+        after_ = l.running
+        top = max(before, after_)
+        bottom = min(before, after_)
+
+        tone =
+          cond do
+            Map.get(l, :reconcile, false) -> "bg-base-300"
+            l.sign > 0 -> "bg-brand"
+            true -> "bg-negative"
+          end
+
+        {%{
+           key: l.key,
+           label: l.short,
+           value: Format.signed(l.sign * l.value),
+           title: "#{l.label}: #{Format.num(l.value)} MTD · #{Format.num(l.value)} full month",
+           bottom: pct.(bottom),
+           height: max(pct.(top) - pct.(bottom), 0.6),
+           tone: tone,
+           text: if(l.sign > 0 and not Map.get(l, :reconcile, false), do: "text-brand", else: if(l.sign < 0, do: "text-negative", else: "text-muted"))
+         }, after_}
+      end)
+
+    cols =
+      [
+        %{key: :opening, label: "Opening", value: Format.num(b.opening), title: "Opening transactions — last month's closing", bottom: 0.0, height: pct.(b.opening), tone: "bg-base-300", text: "text-base-content"}
+      ] ++
+        step_cols ++
+        [
+          %{key: :total, label: "Total transactions", value: Format.num(b.total), title: "Total transactions MTD — THOR's count", bottom: 0.0, height: pct.(b.total), tone: "bg-brand-yellow", text: "text-base-content"}
+        ]
+
+    assigns = assign(assigns, cols: cols, net: Format.signed(b.net_growth))
+
+    ~H"""
+    <section class="rounded-xl bg-base-100 px-4 pb-3 pt-3 ring-1 ring-base-300">
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 class="text-[12px] font-extrabold uppercase tracking-wide">{gettext("Membership bridge")}</h2>
+        <span class="text-[11px] text-muted">
+          {Gm.scope_name(@club_id)} · {@month_label} MTD · opening {Format.num(@bridge.opening)} → total {Format.num(@bridge.total)}
+          <span class={["font-bold", @bridge.net_growth >= 0 && "text-positive", @bridge.net_growth < 0 && "text-negative"]}>
+            ({@net})
+          </span>
+          · full month {Format.num(@full.total)}
+        </span>
+        <button
+          type="button"
+          phx-click="tab"
+          phx-value-tab="bridge"
+          class="ms-auto text-[10px] font-bold uppercase tracking-wide text-muted underline-offset-2 hover:underline"
+        >
+          {gettext("Full bridge table →")}
+        </button>
+      </div>
+      <div class="mt-3 grid gap-1" style={"grid-template-columns: repeat(#{length(@cols)}, minmax(0, 1fr))"}>
+        <div :for={c <- @cols} class="flex min-w-0 flex-col items-center" title={c.title}>
+          <span class={["mb-1 whitespace-nowrap text-[11px] font-bold tabular-nums", c.text]}>{c.value}</span>
+          <div class="relative h-24 w-full">
+            <div
+              class={["absolute inset-x-[18%] rounded-sm", c.tone]}
+              style={"bottom: #{c.bottom}%; height: #{c.height}%"}
+            >
+            </div>
+          </div>
+          <span class="mt-1 w-full truncate text-center text-[10px] font-semibold uppercase tracking-wide text-muted">
+            {c.label}
+          </span>
+        </div>
+      </div>
+    </section>
+    """
+  end
 
   defp attention_panel(assigns) do
     ~H"""
