@@ -202,10 +202,10 @@ defmodule GmBmdWeb.TargetsLive do
     ~H"""
     <Layouts.app flash={@flash} identity={@identity} current_path={@current_path}>
       <div class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-center gap-2 rounded-lg bg-navy px-3 py-2 text-navy-content">
+        <div class="flex flex-wrap items-center gap-2 rounded-xl bg-base-100 px-3 py-2 ring-1 ring-base-300">
           <.link
             navigate={~p"/"}
-            class="inline-flex items-center gap-1 rounded-md bg-navy-content/15 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide"
+            class="inline-flex items-center gap-1 rounded-md bg-base-200 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-base-content hover:bg-base-300"
           >
             <.icon name="arrow-left" class="size-3" /> {gettext("Dashboard")}
           </.link>
@@ -225,7 +225,7 @@ defmodule GmBmdWeb.TargetsLive do
             class={[
               "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide",
               @locked && "bg-positive-soft text-positive",
-              !@locked && "bg-navy-content/15"
+              !@locked && "bg-base-200 text-base-content"
             ]}
           >
             <.icon :if={@locked} name="lock" class="size-2.5" />
@@ -242,21 +242,21 @@ defmodule GmBmdWeb.TargetsLive do
             <button
               :if={@locked}
               phx-click="start-unlock"
-              class="inline-flex items-center gap-1 rounded-md bg-base-100 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-base-content"
+              class="inline-flex items-center gap-1 rounded-md bg-base-200 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-base-content hover:bg-base-300"
             >
               <.icon name="unlock" class="size-3" /> Unlock {@selected.name}
             </button>
             <button
               :if={!@locked}
               phx-click="use-last-actuals"
-              class="rounded-md bg-base-100 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-base-content"
+              class="rounded-md bg-base-200 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-base-content hover:bg-base-300"
             >
               Use last month actual
             </button>
             <button
               :if={!@locked}
               phx-click="copy-last-targets"
-              class="rounded-md bg-base-100 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-base-content"
+              class="rounded-md bg-base-200 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-base-content hover:bg-base-300"
             >
               Copy last month's targets
             </button>

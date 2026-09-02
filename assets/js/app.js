@@ -151,9 +151,9 @@ const Hooks = {
         try { localStorage.setItem("gmbmd:theme", choice); } catch (_e) {}
         this.el.querySelectorAll("[data-theme-choice]").forEach((b) => {
           const on = b.dataset.themeChoice === choice;
-          b.classList.toggle("bg-navy", on);
-          b.classList.toggle("text-navy-content", on);
-          b.classList.toggle("text-muted", !on);
+          b.classList.toggle("bg-brand-yellow", on);
+          b.classList.toggle("text-brand", on);
+          b.classList.toggle("text-brand-content/70", !on);
           b.setAttribute("aria-pressed", String(on));
         });
       };

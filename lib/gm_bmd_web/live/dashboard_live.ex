@@ -363,7 +363,7 @@ defmodule GmBmdWeb.DashboardLive do
         </div>
 
         <div class={[
-          "flex flex-col gap-2 rounded-lg px-3 py-2.5 ring-1 sm:flex-row sm:items-start sm:gap-3",
+          "flex flex-col gap-2 rounded-xl px-4 py-3.5 ring-1 sm:flex-row sm:items-center sm:gap-3",
           @verdict.status == :on && "bg-positive-soft ring-positive/40",
           @verdict.status == :watch && "bg-steel-soft ring-steel",
           @verdict.status == :off && "bg-negative-soft ring-negative/40"
@@ -372,15 +372,15 @@ defmodule GmBmdWeb.DashboardLive do
             <.icon
               name={if @verdict.status == :on, do: "trending-up", else: "alert"}
               class={[
-                "mt-[2px] size-4",
+                "size-5",
                 @verdict.status == :on && "text-positive",
                 @verdict.status == :watch && "text-base-content",
                 @verdict.status == :off && "text-negative"
               ]}
             />
-            <p class="min-w-0 text-sm font-bold leading-snug">
+            <p class="display-title min-w-0 text-lg leading-snug">
               {@verdict.headline}
-              <span :if={@verdict.drag} class="block text-[11px] font-semibold text-muted">
+              <span :if={@verdict.drag} class="block text-xs font-semibold text-muted">
                 {@verdict.drag}
               </span>
             </p>
@@ -699,7 +699,7 @@ defmodule GmBmdWeb.DashboardLive do
         <span :if={@hint} title={@hint} class="inline-flex"><.icon name="info" class="size-3 opacity-60" /></span>
       </p>
       <p class={[
-        "display-title mt-1.5 whitespace-nowrap text-[28px] leading-none tabular-nums sm:text-[32px]",
+        "display-title mt-2 whitespace-nowrap text-[32px] leading-none tabular-nums sm:text-[36px]",
         @tone == "red" && "text-negative"
       ]}>
         <%= if @navigate do %>

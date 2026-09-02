@@ -10,16 +10,24 @@
    ------------------------------------------------------------------------ */
 
 :root {
-  --t-base-100: oklch(98% 0 0);
-  --t-base-200: oklch(96% 0.001 286.375);
-  --t-base-300: oklch(92% 0.004 286.32);
-  --t-base-content: oklch(21% 0.006 285.885);
-  --t-muted: oklch(44% 0.017 285.786);
-  --t-primary: oklch(86% 0.19 90);
-  --t-primary-content: oklch(26% 0.05 230);
-  --t-navy: #022a3a;
-  --t-navy-content: oklch(98% 0 0);
-  --t-navy-soft: color-mix(in oklab, #022a3a 12%, transparent);
+  /* Brand: GymNation yellow and navy, sampled from the logo. */
+  --t-brand-yellow: #f2ce0f;
+  --t-brand-navy: #09293a;
+
+  --t-page: #f3f5f7;
+  --t-base-100: #ffffff;
+  --t-base-200: #f3f5f7;
+  --t-base-300: #e4e8ec;
+  --t-base-content: #09293a;
+  --t-muted: #5b6b78;
+  --t-primary: var(--t-brand-yellow);
+  --t-primary-content: var(--t-brand-navy);
+  --t-navy: var(--t-brand-navy);
+  --t-navy-content: #ffffff;
+  --t-navy-soft: color-mix(in oklab, var(--t-brand-navy) 10%, transparent);
+  --t-card-edge: color-mix(in oklab, var(--t-brand-navy) 7%, transparent);
+  --t-card-shadow: 0 1px 2px color-mix(in oklab, var(--t-brand-navy) 6%, transparent),
+    0 2px 6px color-mix(in oklab, var(--t-brand-navy) 4%, transparent);
   --t-steel: #2f6e86;
   --t-steel-soft: color-mix(in oklab, #2f6e86 14%, transparent);
   --t-positive: oklch(52% 0.12 182.503);
@@ -31,14 +39,17 @@
 }
 
 [data-theme="dark"] {
-  --t-base-100: oklch(30.33% 0.016 252.42);
-  --t-base-200: oklch(25.26% 0.014 253.1);
-  --t-base-300: oklch(20.15% 0.012 254.09);
-  --t-base-content: oklch(97.807% 0.029 256.847);
-  --t-muted: oklch(75% 0.02 256);
-  --t-navy: oklch(88% 0.03 240);
-  --t-navy-content: #022a3a;
-  --t-navy-soft: color-mix(in oklab, oklch(88% 0.03 240) 16%, transparent);
+  --t-page: #0b1f2b;
+  --t-base-100: #12303f;
+  --t-base-200: #0f2937;
+  --t-base-300: #1d3d4d;
+  --t-base-content: #f2f6f8;
+  --t-muted: #9fb2bd;
+  --t-navy: #e6edf1;
+  --t-navy-content: #09293a;
+  --t-navy-soft: color-mix(in oklab, #e6edf1 16%, transparent);
+  --t-card-edge: color-mix(in oklab, #ffffff 8%, transparent);
+  --t-card-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px rgb(0 0 0 / 0.25);
   --t-steel: oklch(72% 0.07 230);
   --t-steel-soft: color-mix(in oklab, oklch(72% 0.07 230) 18%, transparent);
   --t-positive: oklch(72% 0.118 184.704);
@@ -60,6 +71,10 @@
   --color-navy: var(--t-navy);
   --color-navy-content: var(--t-navy-content);
   --color-navy-soft: var(--t-navy-soft);
+  --color-brand: var(--t-brand-navy);
+  --color-brand-content: #ffffff;
+  --color-brand-yellow: var(--t-brand-yellow);
+  --color-page: var(--t-page);
   --color-steel: var(--t-steel);
   --color-steel-soft: var(--t-steel-soft);
   --color-positive: var(--t-positive);
@@ -76,12 +91,35 @@
 
 html {
   font-family: var(--font-sans);
-  background: var(--t-base-100);
+  background: var(--t-page);
 }
 
 body {
-  background: var(--t-base-100);
+  background: var(--t-page);
   color: var(--t-base-content);
+}
+
+/* Cards read as white slabs on the page ground: a hairline edge and a soft
+   shadow instead of a drawn border, so the boxes recede and the numbers lead. */
+.ring-base-300 {
+  --tw-ring-color: var(--t-card-edge);
+}
+
+.rounded-xl.bg-base-100.ring-1,
+.rounded-lg.bg-base-100.ring-1,
+.panel {
+  box-shadow: var(--t-card-shadow), 0 0 0 1px var(--t-card-edge);
+}
+
+.rounded-xl.bg-base-100.ring-1,
+.rounded-lg.bg-base-100.ring-1 {
+  --tw-ring-shadow: 0 0 #0000;
+}
+
+.brand-wordmark {
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 /* Framed by the shell: it already draws logo/theme/identity chrome. */
@@ -99,7 +137,6 @@ body {
 .panel {
   border-radius: var(--radius-box);
   background: var(--t-base-100);
-  box-shadow: 0 0 0 1px var(--t-base-300);
 }
 
 .select-field {

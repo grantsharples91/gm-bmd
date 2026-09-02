@@ -62,10 +62,10 @@ defmodule GmBmdWeb.DailyLive do
     ~H"""
     <Layouts.app flash={@flash} identity={@identity} current_path={@current_path}>
       <div class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-center gap-2 rounded-lg bg-navy px-3 py-2 text-navy-content">
+        <div class="flex flex-wrap items-center gap-2 rounded-xl bg-base-100 px-3 py-2 ring-1 ring-base-300">
           <.link
             navigate={~p"/"}
-            class="inline-flex items-center gap-1 rounded-md bg-navy-content/15 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide"
+            class="inline-flex items-center gap-1 rounded-md bg-base-200 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-base-content hover:bg-base-300"
           >
             <.icon name="arrow-left" class="size-3" /> {gettext("Dashboard")}
           </.link>

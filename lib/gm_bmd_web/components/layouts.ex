@@ -13,11 +13,16 @@ defmodule GmBmdWeb.Layouts do
     ~H"""
     <div id="thor-bridge" phx-hook="ThorBridge" class="min-h-screen bg-base-100 text-base-content">
       <header
-        class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-base-300 px-4 py-2"
+        class="flex flex-wrap items-center gap-x-5 gap-y-1 bg-brand px-4 py-2 text-brand-content shadow-md"
         data-t3-chrome
       >
-        <span class="display-title text-sm">
-          General Manager <span class="text-primary">-</span> Business Management Dashboard
+        <.link navigate={~p"/"} class="flex items-center gap-2.5">
+          <img src={~p"/images/gymnation-g.png"} alt="GymNation" class="h-7 w-auto" />
+          <span class="brand-wordmark text-[13px] leading-none">GymNation</span>
+        </.link>
+        <span class="hidden h-5 w-px bg-brand-content/25 sm:block"></span>
+        <span class="display-title text-[13px] leading-none">
+          General Manager <span class="text-brand-yellow">-</span> Business Management Dashboard
         </span>
         <nav class="flex flex-wrap items-center gap-1 text-[11px] font-bold uppercase tracking-wide">
           <.nav_link navigate={~p"/"} label={gettext("Dashboard")} current_path={@current_path} />
@@ -32,21 +37,21 @@ defmodule GmBmdWeb.Layouts do
             id="theme-toggle"
             phx-hook="ThemeToggle"
             phx-update="ignore"
-            class="t3-hide-framed flex h-7 items-stretch overflow-hidden rounded-md border border-base-300 bg-base-100 text-[10px] font-bold uppercase tracking-wide"
+            class="t3-hide-framed flex h-7 items-stretch overflow-hidden rounded-md border border-brand-content/25 text-[10px] font-bold uppercase tracking-wide"
             role="group"
             aria-label={gettext("Theme")}
           >
-            <button type="button" data-theme-choice="light" class="px-2 text-muted hover:bg-base-200">
+            <button type="button" data-theme-choice="light" class="px-2 text-brand-content/70 hover:bg-brand-content/10">
               {gettext("Light")}
             </button>
-            <button type="button" data-theme-choice="dark" class="px-2 text-muted hover:bg-base-200">
+            <button type="button" data-theme-choice="dark" class="px-2 text-brand-content/70 hover:bg-brand-content/10">
               {gettext("Dark")}
             </button>
-            <button type="button" data-theme-choice="auto" class="px-2 text-muted hover:bg-base-200">
+            <button type="button" data-theme-choice="auto" class="px-2 text-brand-content/70 hover:bg-brand-content/10">
               {gettext("Auto")}
             </button>
           </span>
-          <span :if={@identity && @identity.email != ""} class="text-[11px] text-muted">
+          <span :if={@identity && @identity.email != ""} class="text-[11px] text-brand-content/70">
             {@identity.email}
           </span>
         </span>
@@ -66,10 +71,10 @@ defmodule GmBmdWeb.Layouts do
 
     ~H"""
     <span
-      class="hidden items-center gap-1.5 rounded-md border border-base-300 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted sm:inline-flex"
+      class="hidden items-center gap-1.5 rounded-md border border-brand-content/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-content/80 sm:inline-flex"
       title={@feed.title}
     >
-      <span class={["size-1.5 rounded-full", @feed.live? && "bg-positive", !@feed.live? && "bg-base-300"]}>
+      <span class={["size-1.5 rounded-full", @feed.live? && "bg-brand-yellow", !@feed.live? && "bg-brand-content/40"]}>
       </span>
       {@feed.label}
     </span>
@@ -103,8 +108,8 @@ defmodule GmBmdWeb.Layouts do
       aria-current={@active? && "page"}
       class={[
         "rounded-md px-2.5 py-1.5 transition-colors",
-        @active? && "bg-primary text-primary-content shadow-sm",
-        !@active? && "text-muted hover:bg-base-200 hover:text-base-content"
+        @active? && "bg-brand-yellow text-brand shadow-sm",
+        !@active? && "text-brand-content/75 hover:bg-brand-content/10 hover:text-brand-content"
       ]}
     >
       {@label}
