@@ -9,9 +9,12 @@ defmodule GmBmd.Daily do
   the dashboard's MTD transactions to the unit.
 
   Forecasts for the days still to come spread (target − MTD actual) over the
-  remaining days by day-of-week weight; the run-driven KPIs take their
-  month-end totals from `GmBmd.Outturn`, and recurring dues absorb the rest,
-  so this page and the outturn always close on the same number.
+  remaining days. Recurring dues and defaults raised follow the billing
+  schedule — the members due to run on each day — so the forecast lands on
+  billing-run days, not on a day-of-week curve; the sales-driven KPIs use a
+  day-of-week weight. The run-driven KPIs take their month-end totals from
+  `GmBmd.Outturn`, and recurring dues absorb the rest, so this page and the
+  outturn always close on the same number.
   """
 
   alias GmBmd.Bridge
@@ -29,6 +32,10 @@ defmodule GmBmd.Daily do
   ]
 
   @kpi_keys Enum.map(@daily_kpis, & &1.key)
+
+  # KPIs that only move when a billing run happens: their daily shape is the
+  # billing schedule (members due that day), never a day-of-week curve.
+  @run_scheduled [:recurring, :defaults_raised]
 
   @chart_positive [
     %{key: :recurring, label: "Recurring dues", colour: "#8DA3B8"},
@@ -215,16 +222,26 @@ defmodule GmBmd.Daily do
     prev_meta = Bridge.month_meta(prev_month) || meta
     prev_actual = actuals_by_day(prev_month, club_id, Bridge.days_in_month(prev_meta))
 
+    # The billing schedule: members due to run on each day of the month (the
+    # feed's runs, filled from weekday averages for days not yet fed).
+    due_by_day = for day <- 1..dim, do: billing_due_on(month, club_id, day)
+    due_known? = Enum.sum(due_by_day) > 0
+
     weights =
       Map.new(@kpi_keys, fn key ->
         shaped =
-          if source == :fallback do
-            for i <- 1..dim do
-              prev = Map.get(prev_actual, i, zero_kpis())
-              Map.fetch!(prev, key) + 0.05
-            end
-          else
-            for day <- 1..dim, do: weight_for(key, day, dow(meta, day), dim)
+          cond do
+            key in @run_scheduled and due_known? ->
+              Enum.map(due_by_day, &(&1 * 1.0))
+
+            source == :fallback ->
+              for i <- 1..dim do
+                prev = Map.get(prev_actual, i, zero_kpis())
+                Map.fetch!(prev, key) + 0.05
+              end
+
+            true ->
+              for day <- 1..dim, do: weight_for(key, day, dow(meta, day), dim)
           end
 
         {key, shaped}
@@ -291,7 +308,7 @@ defmodule GmBmd.Daily do
           weekend: dow_idx in [5, 6],
           today: current? and day == days_elapsed,
           past: past?,
-          billing_due: billing_due_on(month, club_id, day),
+          billing_due: Enum.at(due_by_day, i, 0),
           forecast: fc,
           actual: act,
           closing_position: closing

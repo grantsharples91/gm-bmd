@@ -265,6 +265,12 @@ defmodule GmBmdWeb.DailyLive do
       <p class="display-title mb-2 text-xs">Forecast method</p>
       <ul class="list-disc space-y-1.5 ps-4 text-muted">
         <li>
+          <strong class="text-base-content">Billing schedule.</strong>
+          Recurring dues and defaults raised follow the billing runs: each day's share is the members due to
+          run that day (the "due" figure on the row), so the forecast lands on run days and is zero on days
+          with nothing due.
+        </li>
+        <li>
           <strong class="text-base-content">Remaining days.</strong>
           Sales-driven KPIs: (target − MTD actual) spread across the {@model.days_left} remaining days by
           day-of-week weight. Run-driven KPIs take their month-end total from the outturn engine, so this
@@ -272,11 +278,13 @@ defmodule GmBmdWeb.DailyLive do
         </li>
         <li>
           <strong class="text-base-content">Past days.</strong>
-          The forecast shown is the original plan — the month-end target spread over every day with the same weights.
+          The forecast shown is the original plan — the month-end target spread over every day with the same
+          shape (billing schedule for run-driven KPIs, day-of-week weight for sales-driven).
         </li>
         <li>
           <strong class="text-base-content">Seasonality.</strong>
-          UAE pattern: Sun–Thu normal, Fri quiet, Sat busiest, and an upfront spike over the last three days.
+          Sales-driven KPIs only. UAE pattern: Sun–Thu normal, Fri quiet, Sat busiest, and an upfront spike
+          over the last three days.
         </li>
         <li>
           <strong class="text-base-content">No approved targets.</strong>
