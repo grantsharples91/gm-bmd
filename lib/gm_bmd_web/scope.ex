@@ -9,8 +9,12 @@ defmodule GmBmdWeb.Scope do
   alias GmBmd.Bridge
   alias GmBmd.Gm
 
+  # An explicit club_id wins over the checkbox list: the picker never sends
+  # both, but a serialised form can carry the "all" checkbox alongside it.
+  def from_params(%{"club_id" => club_id}) when is_binary(club_id) and club_id != "",
+    do: from_ids([club_id])
+
   def from_params(%{"clubs" => clubs}) when is_list(clubs), do: from_ids(clubs)
-  def from_params(%{"club_id" => club_id}) when is_binary(club_id), do: from_ids([club_id])
   def from_params(_params), do: Gm.all_clubs()
 
   @doc "Validate a selection string or a list of ids against the club list."
