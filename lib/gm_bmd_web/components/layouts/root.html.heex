@@ -11,7 +11,7 @@
       name="thor-shell-origins"
       content={Application.get_env(:gm_bmd, :shell_origins, []) |> Enum.join(" ")}
     />
-    <.live_title default="GM Business Management Dashboard">
+    <.live_title default="General Manager - Business Management Dashboard">
       {assigns[:page_title]}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />

@@ -16,7 +16,7 @@ defmodule GmBmdWeb.Layouts do
         data-t3-chrome
       >
         <span class="display-title text-sm">
-          GM<span class="text-primary">·</span>BMD
+          General Manager <span class="text-primary">-</span> Business Management Dashboard
         </span>
         <nav class="flex flex-wrap items-center gap-1 text-[11px] font-bold uppercase tracking-wide">
           <.nav_link navigate={~p"/"} label={gettext("Dashboard")} />
