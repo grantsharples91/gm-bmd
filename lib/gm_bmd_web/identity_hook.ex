@@ -9,6 +9,7 @@ defmodule GmBmdWeb.IdentityHook do
   """
 
   import Phoenix.Component
+  import Phoenix.LiveView, only: [attach_hook: 4]
 
   def on_mount(:default, _params, session, socket) do
     identity =
@@ -17,7 +18,18 @@ defmodule GmBmdWeb.IdentityHook do
         _ -> GmBmdWeb.Identity.anonymous()
       end
 
-    {:cont, assign(socket, identity: identity)}
+    socket =
+      socket
+      |> assign(identity: identity, current_path: "/")
+      |> attach_hook(:current_path, :handle_params, &set_current_path/3)
+
+    {:cont, socket}
+  end
+
+  # The header highlights the page being viewed; the path comes from the URI
+  # on every navigation so it stays right across patch and navigate.
+  defp set_current_path(_params, uri, socket) do
+    {:cont, assign(socket, current_path: URI.parse(uri).path || "/")}
   end
 
   # Session round-trips may stringify keys; accept both shapes.

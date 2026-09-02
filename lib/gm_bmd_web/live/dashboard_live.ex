@@ -18,7 +18,7 @@ defmodule GmBmdWeb.DashboardLive do
     {:ok,
      socket
      |> assign(
-       page_title: "GM Membership Analysis",
+       page_title: "Dashboard",
        month: Bridge.current_month_key(),
        club_id: Gm.all_clubs(),
        compare: :target,
@@ -322,10 +322,9 @@ defmodule GmBmdWeb.DashboardLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} identity={@identity}>
+    <Layouts.app flash={@flash} identity={@identity} current_path={@current_path}>
       <div class="flex min-h-[620px] flex-col gap-4">
         <div class="flex flex-wrap items-center gap-3">
-          <h1 class="display-title text-base">{gettext("GM Membership Analysis")}</h1>
           <.month_club_filters
             month={@month}
             club_id={@club_id}

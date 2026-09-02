@@ -200,7 +200,7 @@ defmodule GmBmdWeb.TargetsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} identity={@identity}>
+    <Layouts.app flash={@flash} identity={@identity} current_path={@current_path}>
       <div class="flex flex-col gap-3">
         <div class="flex flex-wrap items-center gap-2 rounded-lg bg-navy px-3 py-2 text-navy-content">
           <.link

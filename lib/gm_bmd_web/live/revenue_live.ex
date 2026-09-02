@@ -57,7 +57,7 @@ defmodule GmBmdWeb.RevenueLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} identity={@identity}>
+    <Layouts.app flash={@flash} identity={@identity} current_path={@current_path}>
       <div class="flex flex-col gap-4">
         <div class="flex flex-wrap items-center gap-3">
           <.link

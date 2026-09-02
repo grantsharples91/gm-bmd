@@ -6,6 +6,7 @@ defmodule GmBmdWeb.Layouts do
 
   attr :flash, :map, required: true
   attr :identity, :map, default: nil
+  attr :current_path, :string, default: "/"
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -19,11 +20,11 @@ defmodule GmBmdWeb.Layouts do
           General Manager <span class="text-primary">-</span> Business Management Dashboard
         </span>
         <nav class="flex flex-wrap items-center gap-1 text-[11px] font-bold uppercase tracking-wide">
-          <.nav_link navigate={~p"/"} label={gettext("Dashboard")} />
-          <.nav_link navigate={~p"/daily"} label={gettext("Daily")} />
-          <.nav_link navigate={~p"/outturn"} label={gettext("Outturn")} />
-          <.nav_link navigate={~p"/revenue"} label={gettext("Revenue")} />
-          <.nav_link navigate={~p"/targets"} label={gettext("Targets")} />
+          <.nav_link navigate={~p"/"} label={gettext("Dashboard")} current_path={@current_path} />
+          <.nav_link navigate={~p"/daily"} label={gettext("Daily")} current_path={@current_path} />
+          <.nav_link navigate={~p"/outturn"} label={gettext("Outturn")} current_path={@current_path} />
+          <.nav_link navigate={~p"/revenue"} label={gettext("Revenue")} current_path={@current_path} />
+          <.nav_link navigate={~p"/targets"} label={gettext("Targets")} current_path={@current_path} />
         </nav>
         <span class="ms-auto flex items-center gap-3">
           <.feed_badge />
@@ -91,12 +92,20 @@ defmodule GmBmdWeb.Layouts do
 
   attr :navigate, :string, required: true
   attr :label, :string, required: true
+  attr :current_path, :string, default: "/"
 
   defp nav_link(assigns) do
+    assigns = assign(assigns, :active?, assigns.current_path == assigns.navigate)
+
     ~H"""
     <.link
       navigate={@navigate}
-      class="rounded-md px-2 py-1 text-muted hover:bg-base-200 hover:text-base-content"
+      aria-current={@active? && "page"}
+      class={[
+        "rounded-md px-2.5 py-1.5 transition-colors",
+        @active? && "bg-primary text-primary-content shadow-sm",
+        !@active? && "text-muted hover:bg-base-200 hover:text-base-content"
+      ]}
     >
       {@label}
     </.link>

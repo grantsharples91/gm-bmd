@@ -7,7 +7,8 @@ defmodule GmBmdWeb.LiveScreensTest do
 
   test "dashboard renders the five hero cards and the verdict", %{conn: conn} do
     {:ok, view, html} = live(conn, ~p"/")
-    assert html =~ "GM Membership Analysis"
+    assert html =~ "General Manager"
+    assert html =~ ~s(aria-current="page")
     assert html =~ "MTD transactions"
     assert html =~ "MTD outstanding defaults"
     assert html =~ "Needs attention"
